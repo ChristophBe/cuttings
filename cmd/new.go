@@ -1,40 +1,60 @@
 /*
 Copyright © 2026 Christoph Becker
-
 */
 package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/ChristophBe/workstreams/internal/shell"
+	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
 )
 
-// newCmd represents the new command
 var newCmd = &cobra.Command{
-	Use:   "new",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Use:   "new <branch>",
+	Short: "Create a new workstream and open an interactive shell",
+	Long: `Create a new git worktree for the given branch and open an interactive
+shell inside it. If the branch does not exist it will be created.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("new called")
+The worktree is stored at .worktrees/<branch>/ relative to the repository root.
+Two environment variables are set inside the shell:
+
+  WORKSTREAM_BRANCH  the name of the branch
+  WORKSTREAM_PATH    the absolute path to the worktree directory
+
+Exiting the shell removes you from the workstream but does not delete it.
+Use "workstreams remove <branch>" to clean up.`,
+	Args:    cobra.ExactArgs(1),
+	Example: "  workstreams new feature/my-feature",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		branch := args[0]
+
+		repoRoot, err := worktree.FindRepoRoot()
+		if err != nil {
+			return err
+		}
+
+		if worktree.Exists(repoRoot, branch) {
+			return fmt.Errorf("workstream %q already exists — use \"workstreams shell %s\" to re-enter it", branch, branch)
+		}
+
+		fmt.Fprintf(os.Stdout, "Creating workstream for branch %q...\n", branch)
+
+		createBranch := !branchExists(repoRoot, branch)
+		path, err := worktree.Add(repoRoot, branch, createBranch)
+		if err != nil {
+			return fmt.Errorf("create workstream: %w", err)
+		}
+
+		fmt.Fprintf(os.Stdout, "Workstream ready at %s\n", path)
+		fmt.Fprintln(os.Stdout, "Opening shell — type 'exit' to return.")
+
+		return shell.Spawn(path, branch)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(newCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// newCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// newCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
