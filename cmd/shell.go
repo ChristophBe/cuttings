@@ -1,6 +1,8 @@
 /*
 Copyright © 2026 Christoph Becker
 */
+
+// Package cmd contains the Cobra command definitions for the workstreams CLI.
 package cmd
 
 import (
@@ -24,7 +26,7 @@ The workstream must already exist — use "workstreams new <branch>" to create o
 WORKSTREAM_BRANCH and WORKSTREAM_PATH are set in the spawned shell.`,
 	Args:    cobra.ExactArgs(1),
 	Example: "  workstreams shell feature/my-feature",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		branch := args[0]
 
 		repoRoot, err := worktree.FindRepoRoot()
@@ -39,8 +41,8 @@ WORKSTREAM_BRANCH and WORKSTREAM_PATH are set in the spawned shell.`,
 		// The worktree path mirrors the structure from worktree.Add.
 		path := filepath.Join(repoRoot, ".worktrees", filepath.FromSlash(branch))
 
-		fmt.Fprintf(os.Stdout, "Opening shell in workstream %q\n", branch)
-		fmt.Fprintln(os.Stdout, "Type 'exit' to return.")
+		_, _ = fmt.Fprintf(os.Stdout, "Opening shell in workstream %q\n", branch)
+		_, _ = fmt.Fprintln(os.Stdout, "Type 'exit' to return.")
 
 		return shell.Spawn(path, branch)
 	},
@@ -52,6 +54,7 @@ func init() {
 
 // branchExists reports whether branch already exists in the repository at repoRoot.
 func branchExists(repoRoot, branch string) bool {
+	//nolint:gosec // branch is a user-supplied git ref; this is intentional.
 	cmd := exec.Command("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
 	cmd.Dir = repoRoot
 	// Also check remote tracking branches with sanitised names.
@@ -59,6 +62,7 @@ func branchExists(repoRoot, branch string) bool {
 		return true
 	}
 	// Try remote refs: refs/remotes/origin/<branch>
+	//nolint:gosec // branch is a user-supplied git ref; this is intentional.
 	cmd2 := exec.Command("git", "show-ref", "--verify", "--quiet",
 		"refs/remotes/origin/"+strings.TrimPrefix(branch, "origin/"))
 	cmd2.Dir = repoRoot

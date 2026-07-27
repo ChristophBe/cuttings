@@ -37,7 +37,8 @@ func Spawn(dir, branch string) error {
 		return fmt.Errorf("change directory to workstream: %w", err)
 	}
 
-	return syscall.Exec(shell, []string{shell}, env) //nolint:wrapcheck
+	//nolint:gosec // $SHELL is the user's own choice of shell — intentional.
+	return syscall.Exec(shell, []string{shell}, env)
 }
 
 // buildEnv returns the current environment with WORKSTREAM_BRANCH and

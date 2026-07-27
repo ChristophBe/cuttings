@@ -1,6 +1,8 @@
 /*
 Copyright © 2026 Christoph Becker
 */
+
+// Package cmd contains the Cobra command definitions for the workstreams CLI.
 package cmd
 
 import (
@@ -28,7 +30,7 @@ Exiting the shell removes you from the workstream but does not delete it.
 Use "workstreams remove <branch>" to clean up.`,
 	Args:    cobra.ExactArgs(1),
 	Example: "  workstreams new feature/my-feature",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		branch := args[0]
 
 		repoRoot, err := worktree.FindRepoRoot()
@@ -40,7 +42,7 @@ Use "workstreams remove <branch>" to clean up.`,
 			return fmt.Errorf("workstream %q already exists — use \"workstreams shell %s\" to re-enter it", branch, branch)
 		}
 
-		fmt.Fprintf(os.Stdout, "Creating workstream for branch %q...\n", branch)
+		_, _ = fmt.Fprintf(os.Stdout, "Creating workstream for branch %q...\n", branch)
 
 		createBranch := !branchExists(repoRoot, branch)
 		path, err := worktree.Add(repoRoot, branch, createBranch)
@@ -48,8 +50,8 @@ Use "workstreams remove <branch>" to clean up.`,
 			return fmt.Errorf("create workstream: %w", err)
 		}
 
-		fmt.Fprintf(os.Stdout, "Workstream ready at %s\n", path)
-		fmt.Fprintln(os.Stdout, "Opening shell — type 'exit' to return.")
+		_, _ = fmt.Fprintf(os.Stdout, "Workstream ready at %s\n", path)
+		_, _ = fmt.Fprintln(os.Stdout, "Opening shell — type 'exit' to return.")
 
 		return shell.Spawn(path, branch)
 	},

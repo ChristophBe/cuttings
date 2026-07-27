@@ -26,12 +26,32 @@ func realPath(t *testing.T, p string) string {
 
 // initRepo creates a temporary git repository with an initial commit and
 // returns its root path. The repo is suitable for worktree operations.
+// gitEnvVars lists git environment variables that are set when running inside
+// a git hook and must be cleared so that test git repos are isolated.
+var gitEnvVars = []string{
+	"GIT_DIR",
+	"GIT_INDEX_FILE",
+	"GIT_WORK_TREE",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_COMMON_DIR",
+}
+
 func initRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 
+	// Clear git hook environment variables so tests run correctly from within
+	// a pre-commit hook (which sets GIT_DIR, GIT_INDEX_FILE, etc.).
+	for _, v := range gitEnvVars {
+		t.Setenv(v, "")
+		if err := os.Unsetenv(v); err != nil {
+			t.Fatalf("unsetenv %s: %v", v, err)
+		}
+	}
+
 	run := func(args ...string) {
 		t.Helper()
+		//nolint:gosec // test helper — args are controlled literals, not user input.
 		cmd := exec.Command("git", args...)
 		cmd.Dir = dir
 		out, err := cmd.CombinedOutput()
@@ -46,7 +66,7 @@ func initRepo(t *testing.T) string {
 
 	// An initial commit is required before worktrees can be created.
 	readmePath := filepath.Join(dir, "README.md")
-	if err := os.WriteFile(readmePath, []byte("# test\n"), 0o644); err != nil {
+	if err := os.WriteFile(readmePath, []byte("# test\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	run("add", "README.md")

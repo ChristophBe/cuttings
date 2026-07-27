@@ -9,29 +9,17 @@ import (
 	"testing"
 )
 
-// TestBuildEnv verifies that WORKSTREAM_BRANCH and WORKSTREAM_PATH are injected
-// and that pre-existing values are replaced.
+// TestEnvVarInjection verifies that WORKSTREAM_BRANCH and WORKSTREAM_PATH are
+// injected and that pre-existing values are replaced.
 //
-// buildEnv is unexported so we test its effects indirectly through the package
-// behaviour by inspecting the environment variables that would be set. Since
-// Spawn replaces the process via syscall.Exec (which we cannot test without
-// forking), we validate the env construction logic here via a subprocess helper.
+// buildEnv is unexported so we test its effects indirectly. Since Spawn
+// replaces the process via syscall.Exec (which cannot be unit-tested without
+// forking), we validate the env construction logic here using buildTestEnv,
+// which mirrors buildEnv's implementation.
 func TestEnvVarInjection(t *testing.T) {
-	// Verify that if WORKSTREAM_BRANCH is already set, Spawn would replace it.
-	// We test buildEnv logic by temporarily setting env vars and checking the
-	// expected output through manual inspection of the exported behaviour.
-	//
-	// The real spawn path uses syscall.Exec and cannot be unit-tested without
-	// a subprocess. The env construction is tested here by setting known values.
-	os.Setenv("WORKSTREAM_BRANCH", "old-branch")
-	os.Setenv("WORKSTREAM_PATH", "/old/path")
-	defer func() {
-		os.Unsetenv("WORKSTREAM_BRANCH")
-		os.Unsetenv("WORKSTREAM_PATH")
-	}()
+	t.Setenv("WORKSTREAM_BRANCH", "old-branch")
+	t.Setenv("WORKSTREAM_PATH", "/old/path")
 
-	// After Spawn runs buildEnv, the resulting slice should contain the new values.
-	// We simulate this by calling the exported test helper below.
 	env := buildTestEnv("new-branch", "/new/path")
 
 	branchVal := ""
@@ -53,8 +41,8 @@ func TestEnvVarInjection(t *testing.T) {
 	}
 }
 
-// buildTestEnv replicates the logic of the unexported buildEnv function so we
-// can test it without exporting it.
+// buildTestEnv mirrors the unexported buildEnv function from the shell package
+// so its logic can be tested without exporting it.
 func buildTestEnv(branch, path string) []string {
 	current := os.Environ()
 	out := make([]string, 0, len(current)+2)
@@ -72,8 +60,7 @@ func buildTestEnv(branch, path string) []string {
 }
 
 func TestEnvVarNotDuplicated(t *testing.T) {
-	os.Setenv("WORKSTREAM_BRANCH", "branch-a")
-	defer os.Unsetenv("WORKSTREAM_BRANCH")
+	t.Setenv("WORKSTREAM_BRANCH", "branch-a")
 
 	env := buildTestEnv("branch-b", "/some/path")
 

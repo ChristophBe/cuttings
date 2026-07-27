@@ -1,6 +1,8 @@
 /*
 Copyright © 2026 Christoph Becker
 */
+
+// Package cmd contains the Cobra command definitions for the workstreams CLI.
 package cmd
 
 import (
@@ -23,7 +25,7 @@ The command will fail if the worktree has uncommitted changes. Use
 "git -C .worktrees/<branch> checkout -- ." to discard them first.`,
 	Args:    cobra.ExactArgs(1),
 	Example: "  workstreams remove feature/my-feature",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		branch := args[0]
 
 		repoRoot, err := worktree.FindRepoRoot()
@@ -38,7 +40,7 @@ The command will fail if the worktree has uncommitted changes. Use
 			return err
 		}
 
-		fmt.Fprintf(os.Stdout, "Workstream for %q removed (branch preserved).\n", branch)
+		_, _ = fmt.Fprintf(os.Stdout, "Workstream for %q removed (branch preserved).\n", branch)
 		return nil
 	},
 }

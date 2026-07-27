@@ -1,0 +1,37 @@
+version: "2"
+
+linters:
+  # Default linters (errcheck, govet, ineffassign, staticcheck, unused) are
+  # enabled automatically. We add revive for style checks and gosec for
+  # security scanning.
+  enable:
+    - revive
+    - errorlint
+    - gosec
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+formatters-settings:
+  goimports:
+    local-prefixes:
+      - github.com/ChristophBe/workstreams
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+      - name: var-naming
+      - name: error-return
+      - name: error-strings
+      - name: increment-decrement
+      # package-comments requires a doc comment in every file; Go convention
+      # requires it in only one file per package (root.go in our case).
+      - name: package-comments
+        disabled: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

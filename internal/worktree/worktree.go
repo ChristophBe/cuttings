@@ -61,7 +61,7 @@ func worktreePath(repoRoot, branch string) string {
 func Add(repoRoot, branch string, createBranch bool) (string, error) {
 	path := worktreePath(repoRoot, branch)
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil { //nolint:gosec // 0750: group-readable worktree dirs are fine
 		return "", fmt.Errorf("create worktree parent directory: %w", err)
 	}
 
@@ -75,6 +75,7 @@ func Add(repoRoot, branch string, createBranch bool) (string, error) {
 		args = []string{"worktree", "add", path, branch}
 	}
 
+	//nolint:gosec // git args include user-supplied branch names; this is the tool's purpose.
 	cmd := exec.Command("git", args...)
 	cmd.Dir = repoRoot
 	out, err := cmd.CombinedOutput()
@@ -102,7 +103,7 @@ func List(repoRoot string) ([]Worktree, error) {
 //	worktree <path>
 //	HEAD <sha>
 //	branch refs/heads/<branch>   (or "detached")
-func parsePorcelain(repoRoot string, data []byte) []Worktree {
+func parsePorcelain(_ string, data []byte) []Worktree {
 	var result []Worktree
 	var current Worktree
 	isFirst := true
@@ -141,6 +142,7 @@ func Remove(repoRoot, branch string) error {
 		return ErrWorktreeNotFound
 	}
 
+	//nolint:gosec // path is derived from an internal worktree directory, not raw user input.
 	cmd := exec.Command("git", "worktree", "remove", path)
 	cmd.Dir = repoRoot
 	out, err := cmd.CombinedOutput()

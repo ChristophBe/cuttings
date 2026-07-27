@@ -1,6 +1,8 @@
 /*
 Copyright © 2026 Christoph Becker
 */
+
+// Package cmd contains the Cobra command definitions for the workstreams CLI.
 package cmd
 
 import (
