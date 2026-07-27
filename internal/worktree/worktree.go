@@ -65,11 +65,15 @@ func Add(repoRoot, branch string, createBranch bool) (string, error) {
 		return "", fmt.Errorf("create worktree parent directory: %w", err)
 	}
 
-	args := []string{"worktree", "add"}
+	var args []string
 	if createBranch {
-		args = append(args, "-b", branch)
+		// New branch: "git worktree add -b <branch> <path>"
+		// Omit the commit-ish — it defaults to HEAD.
+		args = []string{"worktree", "add", "-b", branch, path}
+	} else {
+		// Existing branch: "git worktree add <path> <branch>"
+		args = []string{"worktree", "add", path, branch}
 	}
-	args = append(args, path, branch)
 
 	cmd := exec.Command("git", args...)
 	cmd.Dir = repoRoot

@@ -11,6 +11,7 @@ package shell
 import (
 	"fmt"
 	"os"
+	"strings"
 	"syscall"
 )
 
@@ -47,10 +48,7 @@ func buildEnv(branch, path string) []string {
 	out := make([]string, 0, len(current)+2)
 
 	for _, e := range current {
-		if len(e) >= 20 && e[:20] == "WORKSTREAM_BRANCH=" {
-			continue
-		}
-		if len(e) >= 17 && e[:17] == "WORKSTREAM_PATH=" {
+		if strings.HasPrefix(e, "WORKSTREAM_BRANCH=") || strings.HasPrefix(e, "WORKSTREAM_PATH=") {
 			continue
 		}
 		out = append(out, e)
