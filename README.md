@@ -1,1 +1,117 @@
 # workstreams
+
+A CLI tool for creating and managing isolated git working environments based on git worktrees. Each workstream is a separate directory with its own shell session, enabling tools like [Claude Code](https://claude.ai/claude-code) to work on multiple branches in parallel without interference.
+
+## The Problem
+
+When working with AI coding assistants (or simply juggling multiple features), you often need multiple, completely isolated copies of a repository — each on a different branch, each with its own terminal session. Switching branches in a single directory disrupts uncommitted work and forces tools to reload context.
+
+`workstreams` solves this by wrapping git worktrees with a single command that creates the isolated directory *and* drops you into a shell inside it.
+
+## Features
+
+- **Instant isolation** — one command creates a worktree and opens a shell in it
+- **Branch flexibility** — creates a new branch if it does not exist, uses an existing one otherwise
+- **Zero state** — all state is stored by git itself (`git worktree list`); no daemon or config database
+- **Environment injection** — `WORKSTREAM_BRANCH` and `WORKSTREAM_PATH` are set in the shell so prompts and tools know their context
+- **Co-located worktrees** — stored at `.worktrees/<branch>/` inside the repository, easy to find and gitignored
+
+## Installation
+
+```bash
+go install github.com/ChristophBe/workstreams@latest
+```
+
+Or build from source:
+
+```bash
+git clone https://github.com/ChristophBe/workstreams.git
+cd workstreams
+make install
+```
+
+## Usage
+
+### Create a new workstream
+
+```bash
+workstreams new feature/my-feature
+```
+
+Creates a worktree at `.worktrees/feature/my-feature/`, creates the branch if it does not exist, and opens an interactive shell inside. Type `exit` to return to your original shell. The worktree persists until you explicitly remove it.
+
+### List active workstreams
+
+```bash
+workstreams list
+# or
+workstreams ls
+```
+
+Output:
+
+```
+BRANCH              PATH                                           TYPE
+------              ----                                           ----
+main                /path/to/repo                                  main
+feature/my-feature  /path/to/repo/.worktrees/feature/my-feature    workstream
+```
+
+### Re-open a shell in an existing workstream
+
+```bash
+workstreams shell feature/my-feature
+```
+
+### Remove a workstream
+
+```bash
+workstreams remove feature/my-feature
+# or
+workstreams rm feature/my-feature
+```
+
+Removes the worktree directory. The git branch is preserved so you can re-create the workstream later.
+
+## How It Works
+
+`workstreams new <branch>` is equivalent to:
+
+```bash
+git worktree add -b <branch> .worktrees/<branch>/   # (or without -b if branch exists)
+WORKSTREAM_BRANCH=<branch> WORKSTREAM_PATH=.worktrees/<branch>/ exec $SHELL
+```
+
+The shell is started with `syscall.Exec`, which *replaces* the workstreams process. This means the shell is a first-class process — signals, job control, and `exit` all behave as expected.
+
+## Environment Variables
+
+Variables available inside every workstream shell:
+
+| Variable            | Value                                       |
+|---------------------|---------------------------------------------|
+| `WORKSTREAM_BRANCH` | Branch name (e.g. `feature/my-feature`)     |
+| `WORKSTREAM_PATH`   | Absolute path to the worktree directory     |
+
+You can use these in your shell prompt or in tool configuration to identify the active workstream.
+
+## Parallel Usage with Claude Code
+
+Open a terminal per feature branch:
+
+```bash
+# Terminal 1
+workstreams new feature/auth-refactor
+
+# Terminal 2
+workstreams new feature/new-dashboard
+
+# Each Claude Code session works in its own isolated directory
+# with no branch conflicts or file-lock issues
+```
+
+## See Also
+
+- [Feature documentation](docs/features.md) — detailed feature spec, flags, and limitations
+- [Contributing guide](CONTRIBUTING.md) — coding guidelines and development workflow
+- `git worktree` — the underlying git mechanism
