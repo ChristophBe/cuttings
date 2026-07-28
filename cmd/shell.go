@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ChristophBe/workstreams/internal/config"
 	"github.com/ChristophBe/workstreams/internal/shell"
 	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
@@ -34,12 +35,12 @@ WORKSTREAM_BRANCH and WORKSTREAM_PATH are set in the spawned shell.`,
 			return err
 		}
 
-		if !worktree.Exists(repoRoot, branch) {
+		if !worktree.Exists(repoRoot, config.WorktreesDir(), branch) {
 			return fmt.Errorf("no workstream found for branch %q — create it with \"workstreams new %s\"", branch, branch)
 		}
 
 		// The worktree path mirrors the structure from worktree.Add.
-		path := filepath.Join(repoRoot, ".worktrees", filepath.FromSlash(branch))
+		path := filepath.Join(repoRoot, config.WorktreesDir(), filepath.FromSlash(branch))
 
 		_, _ = fmt.Fprintf(os.Stdout, "Opening shell in workstream %q\n", branch)
 		_, _ = fmt.Fprintln(os.Stdout, "Type 'exit' to return.")

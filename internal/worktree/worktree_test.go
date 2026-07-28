@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ChristophBe/workstreams/internal/worktree"
@@ -96,7 +97,7 @@ func TestFindRepoRoot(t *testing.T) {
 func TestAdd_NewBranch(t *testing.T) {
 	dir := initRepo(t)
 
-	path, err := worktree.Add(dir, "feature/test", true, "")
+	path, err := worktree.Add(dir, ".worktrees", "feature/test", true, "")
 	if err != nil {
 		t.Fatalf("Add() unexpected error: %v", err)
 	}
@@ -121,7 +122,7 @@ func TestAdd_ExistingBranch(t *testing.T) {
 		t.Fatalf("create branch: %v\n%s", err, out)
 	}
 
-	path, err := worktree.Add(dir, "existing-branch", false, "")
+	path, err := worktree.Add(dir, ".worktrees", "existing-branch", false, "")
 	if err != nil {
 		t.Fatalf("Add() unexpected error: %v", err)
 	}
@@ -155,7 +156,7 @@ func TestList(t *testing.T) {
 func TestList_WithWorktree(t *testing.T) {
 	dir := initRepo(t)
 
-	if _, err := worktree.Add(dir, "feature/listed", true, ""); err != nil {
+	if _, err := worktree.Add(dir, ".worktrees", "feature/listed", true, ""); err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
 
@@ -185,12 +186,12 @@ func TestList_WithWorktree(t *testing.T) {
 func TestRemove(t *testing.T) {
 	dir := initRepo(t)
 
-	path, err := worktree.Add(dir, "to-remove", true, "")
+	path, err := worktree.Add(dir, ".worktrees", "to-remove", true, "")
 	if err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
 
-	if err := worktree.Remove(dir, "to-remove"); err != nil {
+	if err := worktree.Remove(dir, ".worktrees", "to-remove"); err != nil {
 		t.Fatalf("Remove() unexpected error: %v", err)
 	}
 
@@ -202,24 +203,96 @@ func TestRemove(t *testing.T) {
 func TestRemove_NotFound(t *testing.T) {
 	dir := initRepo(t)
 
-	err := worktree.Remove(dir, "nonexistent")
+	err := worktree.Remove(dir, ".worktrees", "nonexistent")
 	if err == nil {
 		t.Fatal("Remove() expected error for nonexistent branch, got nil")
+	}
+}
+
+func TestAdd_NewBranch_WithBase(t *testing.T) {
+	dir := initRepo(t)
+
+	// Create a second commit on main so it diverges from "stable".
+	run := func(args ...string) {
+		t.Helper()
+		//nolint:gosec // test helper — args are controlled literals, not user input.
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	// Record main's current HEAD as the "stable" point.
+	//nolint:gosec // test helper — dir is a controlled temp path, not user input.
+	stableHead, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("rev-parse HEAD: %v", err)
+	}
+
+	// Add a second commit to main, advancing it past the stable point.
+	extraFile := filepath.Join(dir, "extra.txt")
+	if err := os.WriteFile(extraFile, []byte("extra\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "extra.txt")
+	run("commit", "-m", "second commit")
+
+	// Create a "stable" branch pointing at the first commit (before the second commit).
+	run("branch", "stable", strings.TrimSpace(string(stableHead)))
+
+	// Add a worktree from the "stable" base — the new branch should NOT include the second commit.
+	path, err := worktree.Add(dir, ".worktrees", "feature/from-stable", true, "stable")
+	if err != nil {
+		t.Fatalf("Add() unexpected error: %v", err)
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("worktree directory does not exist: %v", err)
+	}
+
+	// The worktree's HEAD should match the stable branch tip, not main.
+	//nolint:gosec // test helper — path is a controlled worktree path, not user input.
+	wtHead, err := exec.Command("git", "-C", path, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("rev-parse HEAD in worktree: %v", err)
+	}
+	if strings.TrimSpace(string(wtHead)) != strings.TrimSpace(string(stableHead)) {
+		t.Errorf("worktree HEAD = %q, want stable HEAD %q", strings.TrimSpace(string(wtHead)), strings.TrimSpace(string(stableHead)))
+	}
+}
+
+func TestAdd_CustomWorktreesDir(t *testing.T) {
+	dir := initRepo(t)
+	const customDir = ".custom-worktrees"
+
+	path, err := worktree.Add(dir, customDir, "feature/custom", true, "")
+	if err != nil {
+		t.Fatalf("Add() unexpected error: %v", err)
+	}
+
+	want := filepath.Join(dir, customDir, "feature", "custom")
+	if path != want {
+		t.Errorf("Add() path = %q, want %q", path, want)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("worktree directory does not exist: %v", err)
 	}
 }
 
 func TestExists(t *testing.T) {
 	dir := initRepo(t)
 
-	if worktree.Exists(dir, "feature/check") {
+	if worktree.Exists(dir, ".worktrees", "feature/check") {
 		t.Error("Exists() = true before Add(), want false")
 	}
 
-	if _, err := worktree.Add(dir, "feature/check", true, ""); err != nil {
+	if _, err := worktree.Add(dir, ".worktrees", "feature/check", true, ""); err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
 
-	if !worktree.Exists(dir, "feature/check") {
+	if !worktree.Exists(dir, ".worktrees", "feature/check") {
 		t.Error("Exists() = false after Add(), want true")
 	}
 }

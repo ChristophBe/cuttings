@@ -8,6 +8,8 @@ package cmd
 import (
 	"os"
 
+	"github.com/ChristophBe/workstreams/internal/config"
+	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
 )
 
@@ -27,6 +29,13 @@ Examples:
   workstreams list                     List all active workstreams
   workstreams shell feature/my-feature Re-open a shell in an existing workstream
   workstreams remove feature/my-feature Remove a workstream`,
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		repoRoot, err := worktree.FindRepoRoot()
+		if err != nil {
+			return err
+		}
+		return config.Load(repoRoot)
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

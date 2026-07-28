@@ -24,9 +24,6 @@ var ErrNotAGitRepo = errors.New("not a git repository (or any of the parent dire
 // ErrWorktreeNotFound is returned when a workstream worktree does not exist.
 var ErrWorktreeNotFound = errors.New("workstream not found")
 
-// worktreesDir is the directory (relative to repo root) where worktrees are stored.
-const worktreesDir = ".worktrees"
-
 // Worktree represents an active git worktree / workstream.
 type Worktree struct {
 	// Branch is the branch name checked out in this worktree.
@@ -49,19 +46,19 @@ func FindRepoRoot() (string, error) {
 
 // worktreePath returns the absolute path where a workstream worktree for the
 // given branch is stored.
-func worktreePath(repoRoot, branch string) string {
+func worktreePath(repoRoot, worktreesDir, branch string) string {
 	// Replace slashes in branch names with OS path separators so that
 	// "feature/foo" becomes ".worktrees/feature/foo" — a nested sub-directory.
 	return filepath.Join(repoRoot, worktreesDir, filepath.FromSlash(branch))
 }
 
-// Add creates a new git worktree for branch at .worktrees/<branch>/. If
+// Add creates a new git worktree for branch at <worktreesDir>/<branch>/. If
 // createBranch is true the branch is created; otherwise it must already exist.
 // base optionally specifies the commit-ish to fork from when creating a new
 // branch (e.g. "main", "origin/develop"). An empty string defaults to HEAD.
 // Returns the absolute path of the new worktree.
-func Add(repoRoot, branch string, createBranch bool, base string) (string, error) {
-	path := worktreePath(repoRoot, branch)
+func Add(repoRoot, worktreesDir, branch string, createBranch bool, base string) (string, error) {
+	path := worktreePath(repoRoot, worktreesDir, branch)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil { //nolint:gosec // 0750: group-readable worktree dirs are fine
 		return "", fmt.Errorf("create worktree parent directory: %w", err)
@@ -139,8 +136,8 @@ func parsePorcelain(_ string, data []byte) []Worktree {
 
 // Remove removes the git worktree for the given branch. The branch itself is
 // preserved. Returns ErrWorktreeNotFound if no matching workstream exists.
-func Remove(repoRoot, branch string) error {
-	path := worktreePath(repoRoot, branch)
+func Remove(repoRoot, worktreesDir, branch string) error {
+	path := worktreePath(repoRoot, worktreesDir, branch)
 
 	// Verify the worktree actually exists before attempting removal.
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -158,7 +155,7 @@ func Remove(repoRoot, branch string) error {
 }
 
 // Exists reports whether a workstream worktree for branch already exists.
-func Exists(repoRoot, branch string) bool {
-	_, err := os.Stat(worktreePath(repoRoot, branch))
+func Exists(repoRoot, worktreesDir, branch string) bool {
+	_, err := os.Stat(worktreePath(repoRoot, worktreesDir, branch))
 	return err == nil
 }

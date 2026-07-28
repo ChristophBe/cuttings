@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ChristophBe/workstreams/internal/config"
 	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +34,7 @@ The command will fail if the worktree has uncommitted changes. Use
 			return err
 		}
 
-		if err := worktree.Remove(repoRoot, branch); err != nil {
+		if err := worktree.Remove(repoRoot, config.WorktreesDir(), branch); err != nil {
 			if errors.Is(err, worktree.ErrWorktreeNotFound) {
 				return fmt.Errorf("no workstream found for branch %q", branch)
 			}
