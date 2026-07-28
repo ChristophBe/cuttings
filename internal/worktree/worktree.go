@@ -57,8 +57,10 @@ func worktreePath(repoRoot, branch string) string {
 
 // Add creates a new git worktree for branch at .worktrees/<branch>/. If
 // createBranch is true the branch is created; otherwise it must already exist.
+// base optionally specifies the commit-ish to fork from when creating a new
+// branch (e.g. "main", "origin/develop"). An empty string defaults to HEAD.
 // Returns the absolute path of the new worktree.
-func Add(repoRoot, branch string, createBranch bool) (string, error) {
+func Add(repoRoot, branch string, createBranch bool, base string) (string, error) {
 	path := worktreePath(repoRoot, branch)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil { //nolint:gosec // 0750: group-readable worktree dirs are fine
@@ -67,9 +69,12 @@ func Add(repoRoot, branch string, createBranch bool) (string, error) {
 
 	var args []string
 	if createBranch {
-		// New branch: "git worktree add -b <branch> <path>"
-		// Omit the commit-ish — it defaults to HEAD.
+		// New branch: "git worktree add -b <branch> <path> [<base>]"
+		// Omit the commit-ish when empty — it defaults to HEAD.
 		args = []string{"worktree", "add", "-b", branch, path}
+		if base != "" {
+			args = append(args, base)
+		}
 	} else {
 		// Existing branch: "git worktree add <path> <branch>"
 		args = []string{"worktree", "add", path, branch}

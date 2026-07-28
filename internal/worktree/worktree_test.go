@@ -96,7 +96,7 @@ func TestFindRepoRoot(t *testing.T) {
 func TestAdd_NewBranch(t *testing.T) {
 	dir := initRepo(t)
 
-	path, err := worktree.Add(dir, "feature/test", true)
+	path, err := worktree.Add(dir, "feature/test", true, "")
 	if err != nil {
 		t.Fatalf("Add() unexpected error: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestAdd_ExistingBranch(t *testing.T) {
 		t.Fatalf("create branch: %v\n%s", err, out)
 	}
 
-	path, err := worktree.Add(dir, "existing-branch", false)
+	path, err := worktree.Add(dir, "existing-branch", false, "")
 	if err != nil {
 		t.Fatalf("Add() unexpected error: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestList(t *testing.T) {
 func TestList_WithWorktree(t *testing.T) {
 	dir := initRepo(t)
 
-	if _, err := worktree.Add(dir, "feature/listed", true); err != nil {
+	if _, err := worktree.Add(dir, "feature/listed", true, ""); err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
 
@@ -185,7 +185,7 @@ func TestList_WithWorktree(t *testing.T) {
 func TestRemove(t *testing.T) {
 	dir := initRepo(t)
 
-	path, err := worktree.Add(dir, "to-remove", true)
+	path, err := worktree.Add(dir, "to-remove", true, "")
 	if err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
@@ -215,7 +215,7 @@ func TestExists(t *testing.T) {
 		t.Error("Exists() = true before Add(), want false")
 	}
 
-	if _, err := worktree.Add(dir, "feature/check", true); err != nil {
+	if _, err := worktree.Add(dir, "feature/check", true, ""); err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
 

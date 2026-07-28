@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var fromBranch string
+
 var newCmd = &cobra.Command{
 	Use:   "new <branch>",
 	Short: "Create a new workstream and open an interactive shell",
@@ -26,10 +28,13 @@ Two environment variables are set inside the shell:
   WORKSTREAM_BRANCH  the name of the branch
   WORKSTREAM_PATH    the absolute path to the worktree directory
 
+Use --from to specify the branch or commit to fork from when creating a new
+branch. If omitted, the new branch is created from HEAD.
+
 Exiting the shell removes you from the workstream but does not delete it.
 Use "workstreams remove <branch>" to clean up.`,
 	Args:    cobra.ExactArgs(1),
-	Example: "  workstreams new feature/my-feature",
+	Example: "  workstreams new feature/my-feature\n  workstreams new feature/my-feature --from main",
 	RunE: func(_ *cobra.Command, args []string) error {
 		branch := args[0]
 
@@ -45,7 +50,7 @@ Use "workstreams remove <branch>" to clean up.`,
 		_, _ = fmt.Fprintf(os.Stdout, "Creating workstream for branch %q...\n", branch)
 
 		createBranch := !branchExists(repoRoot, branch)
-		path, err := worktree.Add(repoRoot, branch, createBranch)
+		path, err := worktree.Add(repoRoot, branch, createBranch, fromBranch)
 		if err != nil {
 			return fmt.Errorf("create workstream: %w", err)
 		}
@@ -59,4 +64,5 @@ Use "workstreams remove <branch>" to clean up.`,
 
 func init() {
 	rootCmd.AddCommand(newCmd)
+	newCmd.Flags().StringVar(&fromBranch, "from", "", "branch or commit to fork from when creating a new branch (default: HEAD)")
 }
