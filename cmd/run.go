@@ -15,6 +15,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// exitFn is called to terminate the process with a given exit code. It is a
+// package-level variable so tests can replace it with a non-terminating stub.
+var exitFn = os.Exit
+
 var (
 	runBranch string
 	runFrom   string
@@ -71,7 +75,7 @@ The exit code of the command is propagated to the calling shell.`,
 		// This defer runs LAST (registered first) — propagate exit code after cleanup.
 		defer func() {
 			if exitCode != 0 {
-				os.Exit(exitCode)
+				exitFn(exitCode)
 			}
 		}()
 
