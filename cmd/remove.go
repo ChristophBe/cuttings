@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
+
+	"github.com/ChristophBe/workstreams/internal/worktree"
 )
 
 var removeCmd = &cobra.Command{

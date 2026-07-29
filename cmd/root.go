@@ -10,10 +10,11 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/spf13/cobra"
+
 	"github.com/ChristophBe/workstreams/internal/config"
 	"github.com/ChristophBe/workstreams/internal/shell"
 	"github.com/ChristophBe/workstreams/internal/worktree"
-	"github.com/spf13/cobra"
 )
 
 // rootCmd represents the base command when called without any subcommands
