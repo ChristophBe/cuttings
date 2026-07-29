@@ -11,6 +11,7 @@ package shell
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 )
@@ -48,6 +49,22 @@ func (s *Spawner) Spawn(dir, branch string) error {
 
 	//nolint:gosec // $SHELL is the user's own choice of shell — intentional.
 	return syscall.Exec(shell, []string{shell}, env)
+}
+
+// Run executes command in dir, forwarding stdin/stdout/stderr to the terminal.
+// WORKSTREAM_BRANCH and WORKSTREAM_PATH are injected into the environment.
+// The error is the command's exit error (which may be *exec.ExitError).
+func (s *Spawner) Run(dir, branch string, command []string) error {
+	env := BuildEnv(branch, dir)
+
+	//nolint:gosec // command is user-supplied; this is the tool's purpose.
+	cmd := exec.Command(command[0], command[1:]...)
+	cmd.Dir = dir
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = env
+	return cmd.Run()
 }
 
 // BuildEnv returns the current environment with WORKSTREAM_BRANCH and

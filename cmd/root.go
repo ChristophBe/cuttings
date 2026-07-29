@@ -6,7 +6,9 @@ Copyright © 2026 Christoph Becker
 package cmd
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 
 	"github.com/ChristophBe/workstreams/internal/config"
 	"github.com/ChristophBe/workstreams/internal/shell"
@@ -41,7 +43,9 @@ Examples:
 		}
 		deps.cfg = cfg
 		deps.wt = worktree.NewManager(repoRoot, cfg.WorktreesDir)
-		deps.spawner = shell.NewSpawner()
+		sp := shell.NewSpawner()
+		deps.spawner = sp
+		deps.runner = sp
 		return nil
 	},
 }
@@ -51,6 +55,10 @@ Examples:
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.ExitCode())
+		}
 		os.Exit(1)
 	}
 }

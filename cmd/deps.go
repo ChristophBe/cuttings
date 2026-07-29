@@ -27,10 +27,17 @@ type ShellSpawner interface {
 	Spawn(dir, branch string) error
 }
 
+// CommandRunner abstracts non-interactive command execution for the cmd layer.
+// It is satisfied by *shell.Spawner.
+type CommandRunner interface {
+	Run(dir, branch string, command []string) error
+}
+
 // deps holds the resolved dependencies for the current command invocation.
 // Populated once by PersistentPreRunE in root.go; read by all subcommands.
 var deps struct {
 	cfg     *config.Config
 	wt      WorktreeManager
 	spawner ShellSpawner
+	runner  CommandRunner
 }
