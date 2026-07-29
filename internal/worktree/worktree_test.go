@@ -289,6 +289,97 @@ func TestAdd_CustomWorktreesDir(t *testing.T) {
 	}
 }
 
+func TestCurrentBranch(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	branch, err := m.CurrentBranch()
+	if err != nil {
+		t.Fatalf("CurrentBranch() unexpected error: %v", err)
+	}
+	if branch != "main" {
+		t.Errorf("CurrentBranch() = %q, want %q", branch, "main")
+	}
+}
+
+func TestAddDetached(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	path, err := m.AddDetached("ws-run-test", "")
+	if err != nil {
+		t.Fatalf("AddDetached() unexpected error: %v", err)
+	}
+
+	want := filepath.Join(dir, ".worktrees", "ws-run-test")
+	if path != want {
+		t.Errorf("AddDetached() path = %q, want %q", path, want)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("worktree directory does not exist: %v", err)
+	}
+}
+
+func TestAddDetached_WithBase(t *testing.T) {
+	dir := initRepo(t)
+
+	// Add a second commit so HEAD differs from the first.
+	run := func(args ...string) {
+		t.Helper()
+		//nolint:gosec // test helper — args are controlled literals, not user input.
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	firstHead, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output() //nolint:gosec // test helper
+	if err != nil {
+		t.Fatalf("rev-parse HEAD: %v", err)
+	}
+	extraFile := filepath.Join(dir, "extra.txt")
+	if err := os.WriteFile(extraFile, []byte("extra\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "extra.txt")
+	run("commit", "-m", "second commit")
+
+	m := worktree.NewManager(dir, ".worktrees")
+	path, err := m.AddDetached("ws-run-at-first", strings.TrimSpace(string(firstHead)))
+	if err != nil {
+		t.Fatalf("AddDetached() unexpected error: %v", err)
+	}
+
+	// The worktree HEAD should be the first commit, not the second.
+	//nolint:gosec // test helper — path is a controlled worktree path
+	wtHead, err := exec.Command("git", "-C", path, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("rev-parse HEAD in worktree: %v", err)
+	}
+	if strings.TrimSpace(string(wtHead)) != strings.TrimSpace(string(firstHead)) {
+		t.Errorf("worktree HEAD = %q, want %q", strings.TrimSpace(string(wtHead)), strings.TrimSpace(string(firstHead)))
+	}
+}
+
+func TestAddDetached_NoBranchCreated(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	if _, err := m.AddDetached("ws-run-nobranche", ""); err != nil {
+		t.Fatalf("AddDetached() unexpected error: %v", err)
+	}
+
+	// The generated name must NOT appear as a git branch.
+	//nolint:gosec // test helper — dir is a controlled temp path
+	out, err := exec.Command("git", "-C", dir, "branch", "--list", "ws-run-nobranche").Output()
+	if err != nil {
+		t.Fatalf("git branch --list: %v", err)
+	}
+	if strings.TrimSpace(string(out)) != "" {
+		t.Errorf("branch %q was created but should not have been", "ws-run-nobranche")
+	}
+}
+
 func TestExists(t *testing.T) {
 	dir := initRepo(t)
 	m := worktree.NewManager(dir, ".worktrees")

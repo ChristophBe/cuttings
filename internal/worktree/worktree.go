@@ -151,6 +151,43 @@ func (m *Manager) BranchExists(branch string) bool {
 	return cmd2.Run() == nil
 }
 
+// CurrentBranch returns the name of the branch currently checked out in the
+// main worktree. Returns "HEAD" if the repository is in detached HEAD state.
+func (m *Manager) CurrentBranch() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = m.repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse --abbrev-ref HEAD: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// AddDetached creates a new git worktree in detached HEAD state. name is used
+// only to derive the worktree directory path; no branch is created. base
+// optionally specifies a commit-ish to check out (defaults to HEAD when empty).
+func (m *Manager) AddDetached(name, base string) (string, error) {
+	path := m.Path(name)
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil { //nolint:gosec // 0750: group-readable worktree dirs are fine
+		return "", fmt.Errorf("create worktree parent directory: %w", err)
+	}
+
+	args := []string{"worktree", "add", "--detach", path}
+	if base != "" {
+		args = append(args, base)
+	}
+
+	//nolint:gosec // args include user-supplied values; this is the tool's purpose.
+	cmd := exec.Command("git", args...)
+	cmd.Dir = m.repoRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git worktree add --detach: %w\n%s", err, bytes.TrimSpace(out))
+	}
+	return path, nil
+}
+
 // FindRepoRoot walks up the directory tree from the current working directory
 // to find the root of the git repository (the directory containing .git).
 func FindRepoRoot() (string, error) {

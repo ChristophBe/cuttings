@@ -30,42 +30,62 @@ var runCmd = &cobra.Command{
 	Long: `Create a temporary git worktree, run the given command inside it, then
 remove the worktree when the command finishes (whether it succeeds or fails).
 
-The branch is preserved after cleanup — only the worktree directory is removed.
+Only the worktree directory is removed — no branch is created or deleted.
 
-If --branch is omitted, a unique temporary branch is created automatically
-(e.g. ws-run-<timestamp>) and forked from HEAD or --from.
+Without --branch, a detached HEAD worktree is created at the current branch's
+HEAD commit (or --from if specified). With --branch, a worktree is created for
+that branch (which is also created if it does not exist yet).
 
 Use -- to separate workstreams flags from the command and its arguments:
 
   workstreams run -- make test
   workstreams run --branch feature/foo -- go test ./...
-  workstreams run --from main -- ./scripts/ci.sh
+  workstreams run --from origin/main -- ./scripts/ci.sh
 
 The exit code of the command is propagated to the calling shell.`,
 	Args:    cobra.MinimumNArgs(1),
 	Example: "  workstreams run -- make test\n  workstreams run --branch feature/foo -- go test ./...",
 	RunE: func(_ *cobra.Command, args []string) error {
-		branch := runBranch
-		if branch == "" {
-			branch = fmt.Sprintf("ws-run-%d", time.Now().UnixNano())
-		}
+		var (
+			path        string
+			envBranch   string // value used for WORKSTREAM_BRANCH env var
+			worktreeKey string // key used to Remove the worktree on cleanup
+			err         error
+		)
 
-		if deps.wt.Exists(branch) {
-			return fmt.Errorf("workstream %q already exists — use \"workstreams remove %s\" to clean it up first", branch, branch)
-		}
+		if runBranch == "" {
+			// No branch specified — detached HEAD at current branch's commit.
+			envBranch, err = deps.wt.CurrentBranch()
+			if err != nil {
+				return fmt.Errorf("get current branch: %w", err)
+			}
+			worktreeKey = fmt.Sprintf("ws-run-%d", time.Now().UnixNano())
 
-		from := runFrom
-		if from == "" {
-			from = deps.cfg.DefaultBranch
-		}
+			_, _ = fmt.Fprintf(os.Stdout, "Creating temporary workstream at %q...\n", envBranch)
+			path, err = deps.wt.AddDetached(worktreeKey, runFrom)
+			if err != nil {
+				return fmt.Errorf("create workstream: %w", err)
+			}
+		} else {
+			// Explicit branch — create worktree for it (creating branch if needed).
+			envBranch = runBranch
+			worktreeKey = runBranch
 
-		createBranch := !deps.wt.BranchExists(branch)
+			if deps.wt.Exists(worktreeKey) {
+				return fmt.Errorf("workstream %q already exists — use \"workstreams remove %s\" to clean it up first", worktreeKey, worktreeKey)
+			}
 
-		_, _ = fmt.Fprintf(os.Stdout, "Creating temporary workstream for branch %q...\n", branch)
+			from := runFrom
+			if from == "" {
+				from = deps.cfg.DefaultBranch
+			}
+			createBranch := !deps.wt.BranchExists(worktreeKey)
 
-		path, err := deps.wt.Add(branch, createBranch, from)
-		if err != nil {
-			return fmt.Errorf("create workstream: %w", err)
+			_, _ = fmt.Fprintf(os.Stdout, "Creating temporary workstream for branch %q...\n", worktreeKey)
+			path, err = deps.wt.Add(worktreeKey, createBranch, from)
+			if err != nil {
+				return fmt.Errorf("create workstream: %w", err)
+			}
 		}
 
 		// exitCode is set when the command exits with a non-zero status so we
@@ -81,13 +101,13 @@ The exit code of the command is propagated to the calling shell.`,
 
 		// This defer runs FIRST (registered second) — always clean up the worktree.
 		defer func() {
-			_, _ = fmt.Fprintf(os.Stdout, "Cleaning up workstream for branch %q...\n", branch)
-			if removeErr := deps.wt.Remove(branch); removeErr != nil {
+			_, _ = fmt.Fprintf(os.Stdout, "Cleaning up workstream...\n")
+			if removeErr := deps.wt.Remove(worktreeKey); removeErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: cleanup failed: %v\n", removeErr)
 			}
 		}()
 
-		runErr := deps.runner.Run(path, branch, args)
+		runErr := deps.runner.Run(path, envBranch, args)
 		if runErr != nil {
 			var exitErr *exec.ExitError
 			if errors.As(runErr, &exitErr) {
@@ -103,6 +123,6 @@ The exit code of the command is propagated to the calling shell.`,
 
 func init() {
 	rootCmd.AddCommand(runCmd)
-	runCmd.Flags().StringVar(&runBranch, "branch", "", "branch to run in (created if it does not exist; default: auto-generated temp branch)")
-	runCmd.Flags().StringVar(&runFrom, "from", "", "branch or commit to fork from when creating a new branch (default: HEAD)")
+	runCmd.Flags().StringVar(&runBranch, "branch", "", "branch to create a worktree for (created if it does not exist)")
+	runCmd.Flags().StringVar(&runFrom, "from", "", "commit-ish to base the worktree on (default: HEAD)")
 }

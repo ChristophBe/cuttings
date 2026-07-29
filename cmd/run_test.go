@@ -17,17 +17,24 @@ import (
 // --- mock implementations ---
 
 type mockWorktreeManager struct {
-	existsResult bool
-	branchExists bool
-	addPath      string
-	addErr       error
-	removeErr    error
+	existsResult     bool
+	branchExists     bool
+	addPath          string
+	addErr           error
+	addDetachedPath  string
+	addDetachedErr   error
+	currentBranch    string
+	currentBranchErr error
+	removeErr        error
 
 	// recorded call arguments
 	addBranch       string
 	addCreateBranch bool
 	addBase         string
+	addDetachedName string
+	addDetachedBase string
 	removeCalled    bool
+	removeKey       string
 }
 
 func (m *mockWorktreeManager) Exists(_ string) bool       { return m.existsResult }
@@ -38,8 +45,17 @@ func (m *mockWorktreeManager) Add(branch string, createBranch bool, base string)
 	m.addBase = base
 	return m.addPath, m.addErr
 }
-func (m *mockWorktreeManager) Remove(_ string) error {
+func (m *mockWorktreeManager) AddDetached(name, base string) (string, error) {
+	m.addDetachedName = name
+	m.addDetachedBase = base
+	return m.addDetachedPath, m.addDetachedErr
+}
+func (m *mockWorktreeManager) CurrentBranch() (string, error) {
+	return m.currentBranch, m.currentBranchErr
+}
+func (m *mockWorktreeManager) Remove(key string) error {
 	m.removeCalled = true
+	m.removeKey = key
 	return m.removeErr
 }
 func (m *mockWorktreeManager) List() ([]worktree.Worktree, error) { return nil, nil }
@@ -91,10 +107,114 @@ func callRunE(args []string) error {
 
 // --- tests ---
 
+// --- no-branch (detached HEAD) path ---
+
+func TestRunCmd_NoBranch_UsesDetachedWorktree(t *testing.T) {
+	wt := &mockWorktreeManager{currentBranch: "feature/foo", addDetachedPath: "/tmp/ws"}
+	runner := &mockRunner{}
+	restore := setupRunTest(wt, runner)
+	defer restore()
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if wt.addBranch != "" {
+		t.Error("Add() should not be called when no --branch is set")
+	}
+	if wt.addDetachedName == "" {
+		t.Error("AddDetached() was not called")
+	}
+	if !strings.HasPrefix(wt.addDetachedName, "ws-run-") {
+		t.Errorf("detached worktree name = %q, want prefix %q", wt.addDetachedName, "ws-run-")
+	}
+}
+
+func TestRunCmd_NoBranch_EnvBranchIsCurrentBranch(t *testing.T) {
+	wt := &mockWorktreeManager{currentBranch: "feature/foo", addDetachedPath: "/tmp/ws"}
+	runner := &mockRunner{}
+	restore := setupRunTest(wt, runner)
+	defer restore()
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if runner.runBranch != "feature/foo" {
+		t.Errorf("WORKSTREAM_BRANCH = %q, want %q", runner.runBranch, "feature/foo")
+	}
+}
+
+func TestRunCmd_NoBranch_FromFlagPassedToAddDetached(t *testing.T) {
+	wt := &mockWorktreeManager{currentBranch: "main", addDetachedPath: "/tmp/ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	runFrom = "origin/main"
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if wt.addDetachedBase != "origin/main" {
+		t.Errorf("AddDetached base = %q, want %q", wt.addDetachedBase, "origin/main")
+	}
+}
+
+func TestRunCmd_NoBranch_CurrentBranchError(t *testing.T) {
+	wt := &mockWorktreeManager{currentBranchErr: errors.New("no git repo")}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	err := callRunE([]string{"true"})
+	if err == nil {
+		t.Fatal("expected error when CurrentBranch() fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "get current branch") {
+		t.Errorf("error %q missing expected prefix", err.Error())
+	}
+}
+
+func TestRunCmd_NoBranch_AddDetachedFails(t *testing.T) {
+	wt := &mockWorktreeManager{currentBranch: "main", addDetachedErr: errors.New("git error")}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	err := callRunE([]string{"true"})
+	if err == nil {
+		t.Fatal("expected error when AddDetached() fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "create workstream") {
+		t.Errorf("error %q missing 'create workstream' prefix", err.Error())
+	}
+}
+
+func TestRunCmd_NoBranch_CleanupCalled(t *testing.T) {
+	wt := &mockWorktreeManager{currentBranch: "main", addDetachedPath: "/tmp/ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !wt.removeCalled {
+		t.Error("Remove() was not called after successful run")
+	}
+	// The worktree key should be the generated ws-run-* name, not the branch name.
+	if !strings.HasPrefix(wt.removeKey, "ws-run-") {
+		t.Errorf("Remove key = %q, want prefix %q", wt.removeKey, "ws-run-")
+	}
+}
+
+// --- explicit --branch path ---
+
 func TestRunCmd_WorktreeAlreadyExists(t *testing.T) {
 	wt := &mockWorktreeManager{existsResult: true}
 	restore := setupRunTest(wt, &mockRunner{})
 	defer restore()
+
+	runBranch = "feature/exists"
 
 	err := callRunE([]string{"echo", "hello"})
 	if err == nil {
@@ -106,10 +226,11 @@ func TestRunCmd_WorktreeAlreadyExists(t *testing.T) {
 }
 
 func TestRunCmd_AddFails(t *testing.T) {
-	addErr := errors.New("git error")
-	wt := &mockWorktreeManager{addErr: addErr, addPath: ""}
+	wt := &mockWorktreeManager{addErr: errors.New("git error")}
 	restore := setupRunTest(wt, &mockRunner{})
 	defer restore()
+
+	runBranch = "feature/new"
 
 	err := callRunE([]string{"echo", "hello"})
 	if err == nil {
@@ -125,6 +246,8 @@ func TestRunCmd_Success_CleanupCalled(t *testing.T) {
 	runner := &mockRunner{}
 	restore := setupRunTest(wt, runner)
 	defer restore()
+
+	runBranch = "feature/foo"
 
 	if err := callRunE([]string{"echo", "hello"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -144,6 +267,8 @@ func TestRunCmd_CommandError_CleanupCalled(t *testing.T) {
 	restore := setupRunTest(wt, runner)
 	defer restore()
 
+	runBranch = "feature/foo"
+
 	err := callRunE([]string{"failing-cmd"})
 	if err == nil {
 		t.Fatal("expected error from failing command, got nil")
@@ -156,7 +281,6 @@ func TestRunCmd_CommandError_CleanupCalled(t *testing.T) {
 func TestRunCmd_ExitError_CleanupCalledAndExitFnInvoked(t *testing.T) {
 	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
 
-	// Build a real *exec.ExitError by running a command that exits with code 3.
 	var exitErr *exec.ExitError
 	if err := exec.Command("sh", "-c", "exit 3").Run(); !errors.As(err, &exitErr) {
 		t.Skip("could not construct *exec.ExitError for test")
@@ -165,6 +289,8 @@ func TestRunCmd_ExitError_CleanupCalledAndExitFnInvoked(t *testing.T) {
 	runner := &mockRunner{runErr: exitErr}
 	restore := setupRunTest(wt, runner)
 	defer restore()
+
+	runBranch = "feature/foo"
 
 	var capturedCode int
 	exitFn = func(code int) { capturedCode = code }
@@ -178,21 +304,6 @@ func TestRunCmd_ExitError_CleanupCalledAndExitFnInvoked(t *testing.T) {
 	}
 	if capturedCode != 3 {
 		t.Errorf("exitFn called with code %d, want 3", capturedCode)
-	}
-}
-
-func TestRunCmd_AutoGeneratedBranchName(t *testing.T) {
-	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
-
-	// runBranch is "" — should auto-generate.
-	if err := callRunE([]string{"true"}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !strings.HasPrefix(wt.addBranch, "ws-run-") {
-		t.Errorf("auto-generated branch = %q, want prefix %q", wt.addBranch, "ws-run-")
 	}
 }
 
@@ -217,6 +328,7 @@ func TestRunCmd_FromFlagPassedToAdd(t *testing.T) {
 	restore := setupRunTest(wt, &mockRunner{})
 	defer restore()
 
+	runBranch = "feature/new"
 	runFrom = "main"
 
 	if err := callRunE([]string{"true"}); err != nil {
@@ -286,8 +398,8 @@ func TestRunCmd_DefaultBranchUsedAsFromBase(t *testing.T) {
 	restore := setupRunTest(wt, &mockRunner{})
 	defer restore()
 
+	runBranch = "feature/new"
 	deps.cfg = &config.Config{DefaultBranch: "develop"}
-	// runFrom is "" — should fall back to DefaultBranch.
 
 	if err := callRunE([]string{"true"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
