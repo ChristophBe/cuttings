@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/ChristophBe/workstreams/internal/config"
-	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
 )
 
@@ -33,12 +32,7 @@ The config file is intended to be committed to the repository so the entire
 team shares the same settings. Use --overwrite to replace an existing file.`,
 	Example: "  workstreams init\n  workstreams init --overwrite",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		repoRoot, err := worktree.FindRepoRoot()
-		if err != nil {
-			return err
-		}
-
-		path := config.FilePath(repoRoot)
+		path := deps.cfg.FilePath()
 
 		if _, err := os.Stat(path); err == nil && !overwrite {
 			return fmt.Errorf("config file already exists at %s — use --overwrite to replace it", path)

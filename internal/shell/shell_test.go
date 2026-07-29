@@ -4,23 +4,22 @@ Copyright © 2026 Christoph Becker
 package shell_test
 
 import (
-	"os"
 	"strings"
 	"testing"
+
+	"github.com/ChristophBe/workstreams/internal/shell"
 )
 
 // TestEnvVarInjection verifies that WORKSTREAM_BRANCH and WORKSTREAM_PATH are
 // injected and that pre-existing values are replaced.
 //
-// buildEnv is unexported so we test its effects indirectly. Since Spawn
-// replaces the process via syscall.Exec (which cannot be unit-tested without
-// forking), we validate the env construction logic here using buildTestEnv,
-// which mirrors buildEnv's implementation.
+// Spawn replaces the process via syscall.Exec and cannot be unit-tested without
+// forking, so we validate the env-construction logic via the exported BuildEnv.
 func TestEnvVarInjection(t *testing.T) {
 	t.Setenv("WORKSTREAM_BRANCH", "old-branch")
 	t.Setenv("WORKSTREAM_PATH", "/old/path")
 
-	env := buildTestEnv("new-branch", "/new/path")
+	env := shell.BuildEnv("new-branch", "/new/path")
 
 	branchVal := ""
 	pathVal := ""
@@ -41,28 +40,10 @@ func TestEnvVarInjection(t *testing.T) {
 	}
 }
 
-// buildTestEnv mirrors the unexported buildEnv function from the shell package
-// so its logic can be tested without exporting it.
-func buildTestEnv(branch, path string) []string {
-	current := os.Environ()
-	out := make([]string, 0, len(current)+2)
-	for _, e := range current {
-		if strings.HasPrefix(e, "WORKSTREAM_BRANCH=") || strings.HasPrefix(e, "WORKSTREAM_PATH=") {
-			continue
-		}
-		out = append(out, e)
-	}
-	out = append(out,
-		"WORKSTREAM_BRANCH="+branch,
-		"WORKSTREAM_PATH="+path,
-	)
-	return out
-}
-
 func TestEnvVarNotDuplicated(t *testing.T) {
 	t.Setenv("WORKSTREAM_BRANCH", "branch-a")
 
-	env := buildTestEnv("branch-b", "/some/path")
+	env := shell.BuildEnv("branch-b", "/some/path")
 
 	count := 0
 	for _, e := range env {

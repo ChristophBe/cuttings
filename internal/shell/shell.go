@@ -15,6 +15,15 @@ import (
 	"syscall"
 )
 
+// Spawner provides shell-spawning functionality for workstream directories.
+// It is a zero-value-usable struct; use NewSpawner to construct one explicitly.
+type Spawner struct{}
+
+// NewSpawner returns a Spawner ready for use.
+func NewSpawner() *Spawner {
+	return &Spawner{}
+}
+
 // Spawn starts an interactive shell in dir by replacing the current process
 // (using syscall.Exec). The shell binary is taken from the SHELL environment
 // variable, falling back to /bin/sh when unset.
@@ -25,13 +34,13 @@ import (
 //
 // Because Exec replaces the current process, this function only returns on
 // error.
-func Spawn(dir, branch string) error {
+func (s *Spawner) Spawn(dir, branch string) error {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/sh"
 	}
 
-	env := buildEnv(branch, dir)
+	env := BuildEnv(branch, dir)
 
 	if err := os.Chdir(dir); err != nil {
 		return fmt.Errorf("change directory to workstream: %w", err)
@@ -41,10 +50,10 @@ func Spawn(dir, branch string) error {
 	return syscall.Exec(shell, []string{shell}, env)
 }
 
-// buildEnv returns the current environment with WORKSTREAM_BRANCH and
+// BuildEnv returns the current environment with WORKSTREAM_BRANCH and
 // WORKSTREAM_PATH set (or overwritten). Existing values for these keys are
 // replaced so that nested workstreams always reflect the innermost context.
-func buildEnv(branch, path string) []string {
+func BuildEnv(branch, path string) []string {
 	current := os.Environ()
 	out := make([]string, 0, len(current)+2)
 

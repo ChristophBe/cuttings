@@ -2,9 +2,14 @@
 Copyright © 2026 Christoph Becker
 */
 
-// Package worktree provides functions for managing git worktrees as workstreams.
+// Package worktree provides types for managing git worktrees as workstreams.
 // Each workstream is stored in .worktrees/<branch-name>/ relative to the
 // repository root, enabling isolated working directories per branch.
+//
+// Usage:
+//
+//	m := worktree.NewManager(repoRoot, ".worktrees")
+//	path, err := m.Add("feature/foo", true, "")
 package worktree
 
 import (
@@ -34,31 +39,35 @@ type Worktree struct {
 	IsMain bool
 }
 
-// FindRepoRoot walks up the directory tree from the current working directory
-// to find the root of the git repository (the directory containing .git).
-func FindRepoRoot() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
-	if err != nil {
-		return "", ErrNotAGitRepo
-	}
-	return strings.TrimSpace(string(out)), nil
+// Manager provides git worktree operations scoped to a single repository.
+// Construct one with NewManager; all methods are then called without repeating
+// the repository root or worktrees directory.
+type Manager struct {
+	repoRoot     string
+	worktreesDir string
 }
 
-// worktreePath returns the absolute path where a workstream worktree for the
-// given branch is stored.
-func worktreePath(repoRoot, worktreesDir, branch string) string {
+// NewManager returns a Manager for the repository at repoRoot, storing
+// worktrees under worktreesDir (relative to repoRoot).
+func NewManager(repoRoot, worktreesDir string) *Manager {
+	return &Manager{repoRoot: repoRoot, worktreesDir: worktreesDir}
+}
+
+// Path returns the absolute filesystem path where a workstream worktree for
+// branch is stored. The path may not exist yet.
+func (m *Manager) Path(branch string) string {
 	// Replace slashes in branch names with OS path separators so that
 	// "feature/foo" becomes ".worktrees/feature/foo" — a nested sub-directory.
-	return filepath.Join(repoRoot, worktreesDir, filepath.FromSlash(branch))
+	return filepath.Join(m.repoRoot, m.worktreesDir, filepath.FromSlash(branch))
 }
 
-// Add creates a new git worktree for branch at <worktreesDir>/<branch>/. If
-// createBranch is true the branch is created; otherwise it must already exist.
-// base optionally specifies the commit-ish to fork from when creating a new
-// branch (e.g. "main", "origin/develop"). An empty string defaults to HEAD.
+// Add creates a new git worktree for branch. If createBranch is true the
+// branch is created; otherwise it must already exist. base optionally
+// specifies the commit-ish to fork from when creating a new branch (e.g.
+// "main", "origin/develop"). An empty string defaults to HEAD.
 // Returns the absolute path of the new worktree.
-func Add(repoRoot, worktreesDir, branch string, createBranch bool, base string) (string, error) {
-	path := worktreePath(repoRoot, worktreesDir, branch)
+func (m *Manager) Add(branch string, createBranch bool, base string) (string, error) {
+	path := m.Path(branch)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil { //nolint:gosec // 0750: group-readable worktree dirs are fine
 		return "", fmt.Errorf("create worktree parent directory: %w", err)
@@ -79,7 +88,7 @@ func Add(repoRoot, worktreesDir, branch string, createBranch bool, base string) 
 
 	//nolint:gosec // git args include user-supplied branch names; this is the tool's purpose.
 	cmd := exec.Command("git", args...)
-	cmd.Dir = repoRoot
+	cmd.Dir = m.repoRoot
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("git worktree add: %w\n%s", err, bytes.TrimSpace(out))
@@ -87,16 +96,69 @@ func Add(repoRoot, worktreesDir, branch string, createBranch bool, base string) 
 	return path, nil
 }
 
-// List returns all git worktrees for the repository at repoRoot, including
-// the main worktree and any additional worktrees under .worktrees/.
-func List(repoRoot string) ([]Worktree, error) {
+// List returns all git worktrees for the repository, including the main
+// worktree and any additional worktrees under the configured worktrees directory.
+func (m *Manager) List() ([]Worktree, error) {
 	cmd := exec.Command("git", "worktree", "list", "--porcelain")
-	cmd.Dir = repoRoot
+	cmd.Dir = m.repoRoot
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git worktree list: %w", err)
 	}
-	return parsePorcelain(repoRoot, out), nil
+	return parsePorcelain(out), nil
+}
+
+// Remove removes the git worktree for the given branch. The branch itself is
+// preserved. Returns ErrWorktreeNotFound if no matching workstream exists.
+func (m *Manager) Remove(branch string) error {
+	path := m.Path(branch)
+
+	// Verify the worktree actually exists before attempting removal.
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return ErrWorktreeNotFound
+	}
+
+	//nolint:gosec // path is derived from an internal worktree directory, not raw user input.
+	cmd := exec.Command("git", "worktree", "remove", path)
+	cmd.Dir = m.repoRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git worktree remove: %w\n%s", err, bytes.TrimSpace(out))
+	}
+	return nil
+}
+
+// Exists reports whether a workstream worktree for branch already exists.
+func (m *Manager) Exists(branch string) bool {
+	_, err := os.Stat(m.Path(branch))
+	return err == nil
+}
+
+// BranchExists reports whether branch already exists in the repository
+// (checking both local and remote tracking refs).
+func (m *Manager) BranchExists(branch string) bool {
+	//nolint:gosec // branch is a user-supplied git ref; this is intentional.
+	cmd := exec.Command("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
+	cmd.Dir = m.repoRoot
+	if cmd.Run() == nil {
+		return true
+	}
+	// Also check remote tracking branches.
+	//nolint:gosec // branch is a user-supplied git ref; this is intentional.
+	cmd2 := exec.Command("git", "show-ref", "--verify", "--quiet",
+		"refs/remotes/origin/"+strings.TrimPrefix(branch, "origin/"))
+	cmd2.Dir = m.repoRoot
+	return cmd2.Run() == nil
+}
+
+// FindRepoRoot walks up the directory tree from the current working directory
+// to find the root of the git repository (the directory containing .git).
+func FindRepoRoot() (string, error) {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return "", ErrNotAGitRepo
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // parsePorcelain parses the output of `git worktree list --porcelain`.
@@ -105,7 +167,7 @@ func List(repoRoot string) ([]Worktree, error) {
 //	worktree <path>
 //	HEAD <sha>
 //	branch refs/heads/<branch>   (or "detached")
-func parsePorcelain(_ string, data []byte) []Worktree {
+func parsePorcelain(data []byte) []Worktree {
 	var result []Worktree
 	var current Worktree
 	isFirst := true
@@ -132,30 +194,4 @@ func parsePorcelain(_ string, data []byte) []Worktree {
 		result = append(result, current)
 	}
 	return result
-}
-
-// Remove removes the git worktree for the given branch. The branch itself is
-// preserved. Returns ErrWorktreeNotFound if no matching workstream exists.
-func Remove(repoRoot, worktreesDir, branch string) error {
-	path := worktreePath(repoRoot, worktreesDir, branch)
-
-	// Verify the worktree actually exists before attempting removal.
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return ErrWorktreeNotFound
-	}
-
-	//nolint:gosec // path is derived from an internal worktree directory, not raw user input.
-	cmd := exec.Command("git", "worktree", "remove", path)
-	cmd.Dir = repoRoot
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("git worktree remove: %w\n%s", err, bytes.TrimSpace(out))
-	}
-	return nil
-}
-
-// Exists reports whether a workstream worktree for branch already exists.
-func Exists(repoRoot, worktreesDir, branch string) bool {
-	_, err := os.Stat(worktreePath(repoRoot, worktreesDir, branch))
-	return err == nil
 }

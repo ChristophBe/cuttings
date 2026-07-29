@@ -14,15 +14,16 @@ import (
 func TestLoad_NoFile(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := config.Load(dir); err != nil {
+	cfg, err := config.Load(dir)
+	if err != nil {
 		t.Fatalf("Load() with no config file: unexpected error: %v", err)
 	}
 
-	if got := config.WorktreesDir(); got != config.DefaultWorktreesDir {
-		t.Errorf("WorktreesDir() = %q, want %q", got, config.DefaultWorktreesDir)
+	if got := cfg.WorktreesDir; got != config.DefaultWorktreesDir {
+		t.Errorf("WorktreesDir = %q, want %q", got, config.DefaultWorktreesDir)
 	}
-	if got := config.DefaultBranch(); got != config.DefaultDefaultBranch {
-		t.Errorf("DefaultBranch() = %q, want %q", got, config.DefaultDefaultBranch)
+	if got := cfg.DefaultBranch; got != config.DefaultDefaultBranch {
+		t.Errorf("DefaultBranch = %q, want %q", got, config.DefaultDefaultBranch)
 	}
 }
 
@@ -33,15 +34,16 @@ func TestLoad_FromFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := config.Load(dir); err != nil {
+	cfg, err := config.Load(dir)
+	if err != nil {
 		t.Fatalf("Load() unexpected error: %v", err)
 	}
 
-	if got := config.WorktreesDir(); got != ".ws" {
-		t.Errorf("WorktreesDir() = %q, want %q", got, ".ws")
+	if got := cfg.WorktreesDir; got != ".ws" {
+		t.Errorf("WorktreesDir = %q, want %q", got, ".ws")
 	}
-	if got := config.DefaultBranch(); got != "main" {
-		t.Errorf("DefaultBranch() = %q, want %q", got, "main")
+	if got := cfg.DefaultBranch; got != "main" {
+		t.Errorf("DefaultBranch = %q, want %q", got, "main")
 	}
 }
 
@@ -56,15 +58,16 @@ func TestLoad_EnvOverride(t *testing.T) {
 	t.Setenv("WORKSTREAMS_WORKTREES_DIR", ".from-env")
 	t.Setenv("WORKSTREAMS_DEFAULT_BRANCH", "develop")
 
-	if err := config.Load(dir); err != nil {
+	cfg, err := config.Load(dir)
+	if err != nil {
 		t.Fatalf("Load() unexpected error: %v", err)
 	}
 
-	if got := config.WorktreesDir(); got != ".from-env" {
-		t.Errorf("WorktreesDir() = %q, want env override %q", got, ".from-env")
+	if got := cfg.WorktreesDir; got != ".from-env" {
+		t.Errorf("WorktreesDir = %q, want env override %q", got, ".from-env")
 	}
-	if got := config.DefaultBranch(); got != "develop" {
-		t.Errorf("DefaultBranch() = %q, want env override %q", got, "develop")
+	if got := cfg.DefaultBranch; got != "develop" {
+		t.Errorf("DefaultBranch = %q, want env override %q", got, "develop")
 	}
 }
 
@@ -74,15 +77,19 @@ func TestLoad_InvalidYAML(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := config.Load(dir); err == nil {
+	if _, err := config.Load(dir); err == nil {
 		t.Error("Load() with invalid YAML: expected error, got nil")
 	}
 }
 
 func TestFilePath(t *testing.T) {
 	dir := t.TempDir()
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
 	want := filepath.Join(dir, config.ConfigFileName)
-	if got := config.FilePath(dir); got != want {
+	if got := cfg.FilePath(); got != want {
 		t.Errorf("FilePath() = %q, want %q", got, want)
 	}
 }

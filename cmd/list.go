@@ -10,7 +10,6 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
 )
 
@@ -23,12 +22,7 @@ and the absolute path to each worktree directory.
 The main worktree (the original clone) is listed but marked separately.`,
 	Aliases: []string{"ls"},
 	RunE: func(_ *cobra.Command, _ []string) error {
-		repoRoot, err := worktree.FindRepoRoot()
-		if err != nil {
-			return err
-		}
-
-		trees, err := worktree.List(repoRoot)
+		trees, err := deps.wt.List()
 		if err != nil {
 			return err
 		}

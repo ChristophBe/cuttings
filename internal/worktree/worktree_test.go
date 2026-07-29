@@ -96,8 +96,9 @@ func TestFindRepoRoot(t *testing.T) {
 
 func TestAdd_NewBranch(t *testing.T) {
 	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
 
-	path, err := worktree.Add(dir, ".worktrees", "feature/test", true, "")
+	path, err := m.Add("feature/test", true, "")
 	if err != nil {
 		t.Fatalf("Add() unexpected error: %v", err)
 	}
@@ -114,6 +115,7 @@ func TestAdd_NewBranch(t *testing.T) {
 
 func TestAdd_ExistingBranch(t *testing.T) {
 	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
 
 	// Create the branch first.
 	cmd := exec.Command("git", "branch", "existing-branch")
@@ -122,7 +124,7 @@ func TestAdd_ExistingBranch(t *testing.T) {
 		t.Fatalf("create branch: %v\n%s", err, out)
 	}
 
-	path, err := worktree.Add(dir, ".worktrees", "existing-branch", false, "")
+	path, err := m.Add("existing-branch", false, "")
 	if err != nil {
 		t.Fatalf("Add() unexpected error: %v", err)
 	}
@@ -134,8 +136,9 @@ func TestAdd_ExistingBranch(t *testing.T) {
 
 func TestList(t *testing.T) {
 	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
 
-	trees, err := worktree.List(dir)
+	trees, err := m.List()
 	if err != nil {
 		t.Fatalf("List() unexpected error: %v", err)
 	}
@@ -155,12 +158,13 @@ func TestList(t *testing.T) {
 
 func TestList_WithWorktree(t *testing.T) {
 	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
 
-	if _, err := worktree.Add(dir, ".worktrees", "feature/listed", true, ""); err != nil {
+	if _, err := m.Add("feature/listed", true, ""); err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
 
-	trees, err := worktree.List(dir)
+	trees, err := m.List()
 	if err != nil {
 		t.Fatalf("List() unexpected error: %v", err)
 	}
@@ -185,13 +189,14 @@ func TestList_WithWorktree(t *testing.T) {
 
 func TestRemove(t *testing.T) {
 	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
 
-	path, err := worktree.Add(dir, ".worktrees", "to-remove", true, "")
+	path, err := m.Add("to-remove", true, "")
 	if err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
 
-	if err := worktree.Remove(dir, ".worktrees", "to-remove"); err != nil {
+	if err := m.Remove("to-remove"); err != nil {
 		t.Fatalf("Remove() unexpected error: %v", err)
 	}
 
@@ -202,8 +207,9 @@ func TestRemove(t *testing.T) {
 
 func TestRemove_NotFound(t *testing.T) {
 	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
 
-	err := worktree.Remove(dir, ".worktrees", "nonexistent")
+	err := m.Remove("nonexistent")
 	if err == nil {
 		t.Fatal("Remove() expected error for nonexistent branch, got nil")
 	}
@@ -243,7 +249,8 @@ func TestAdd_NewBranch_WithBase(t *testing.T) {
 	run("branch", "stable", strings.TrimSpace(string(stableHead)))
 
 	// Add a worktree from the "stable" base — the new branch should NOT include the second commit.
-	path, err := worktree.Add(dir, ".worktrees", "feature/from-stable", true, "stable")
+	m := worktree.NewManager(dir, ".worktrees")
+	path, err := m.Add("feature/from-stable", true, "stable")
 	if err != nil {
 		t.Fatalf("Add() unexpected error: %v", err)
 	}
@@ -266,8 +273,9 @@ func TestAdd_NewBranch_WithBase(t *testing.T) {
 func TestAdd_CustomWorktreesDir(t *testing.T) {
 	dir := initRepo(t)
 	const customDir = ".custom-worktrees"
+	m := worktree.NewManager(dir, customDir)
 
-	path, err := worktree.Add(dir, customDir, "feature/custom", true, "")
+	path, err := m.Add("feature/custom", true, "")
 	if err != nil {
 		t.Fatalf("Add() unexpected error: %v", err)
 	}
@@ -283,16 +291,17 @@ func TestAdd_CustomWorktreesDir(t *testing.T) {
 
 func TestExists(t *testing.T) {
 	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
 
-	if worktree.Exists(dir, ".worktrees", "feature/check") {
+	if m.Exists("feature/check") {
 		t.Error("Exists() = true before Add(), want false")
 	}
 
-	if _, err := worktree.Add(dir, ".worktrees", "feature/check", true, ""); err != nil {
+	if _, err := m.Add("feature/check", true, ""); err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
 
-	if !worktree.Exists(dir, ".worktrees", "feature/check") {
+	if !m.Exists("feature/check") {
 		t.Error("Exists() = false after Add(), want true")
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/ChristophBe/workstreams/internal/config"
+	"github.com/ChristophBe/workstreams/internal/shell"
 	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
 )
@@ -34,7 +35,14 @@ Examples:
 		if err != nil {
 			return err
 		}
-		return config.Load(repoRoot)
+		cfg, err := config.Load(repoRoot)
+		if err != nil {
+			return err
+		}
+		deps.cfg = cfg
+		deps.wt = worktree.NewManager(repoRoot, cfg.WorktreesDir)
+		deps.spawner = shell.NewSpawner()
+		return nil
 	},
 }
 

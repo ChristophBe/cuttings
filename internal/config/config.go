@@ -5,6 +5,12 @@ Copyright © 2026 Christoph Becker
 // Package config provides Viper-based configuration loading for the workstreams CLI.
 // Configuration is read from a .workstreams.yaml file at the git repository root
 // and can be overridden by environment variables with the WORKSTREAMS_ prefix.
+//
+// Usage:
+//
+//	cfg, err := config.Load(repoRoot)
+//	if err != nil { ... }
+//	fmt.Println(cfg.WorktreesDir)
 package config
 
 import (
@@ -31,13 +37,27 @@ const (
 	DefaultDefaultBranch = ""
 )
 
-var v *viper.Viper
+// Config holds the resolved workstreams configuration for a repository.
+type Config struct {
+	// WorktreesDir is the directory (relative to repo root) where worktrees are stored.
+	WorktreesDir string
+	// DefaultBranch is the branch or commit-ish new workstreams fork from by default.
+	// An empty string means HEAD.
+	DefaultBranch string
 
-// Load initialises the Viper instance, sets defaults, wires env-var overrides,
-// and reads the config file at <repoRoot>/.workstreams.yaml.
+	repoRoot string // unexported; retained for FilePath.
+}
+
+// FilePath returns the absolute path to the config file for this repository.
+func (c *Config) FilePath() string {
+	return filepath.Join(c.repoRoot, ConfigFileName)
+}
+
+// Load reads .workstreams.yaml at repoRoot (if present) and returns a Config.
 // A missing config file is not an error — defaults are used instead.
-func Load(repoRoot string) error {
-	v = viper.New()
+// Environment variables with the WORKSTREAMS_ prefix override file values.
+func Load(repoRoot string) (*Config, error) {
+	v := viper.New()
 	v.SetDefault(KeyWorktreesDir, DefaultWorktreesDir)
 	v.SetDefault(KeyDefaultBranch, DefaultDefaultBranch)
 
@@ -49,16 +69,12 @@ func Load(repoRoot string) error {
 	v.SetConfigType("yaml")
 
 	if err := v.ReadInConfig(); err != nil && !os.IsNotExist(err) {
-		return err
+		return nil, err
 	}
-	return nil
+
+	return &Config{
+		WorktreesDir:  v.GetString(KeyWorktreesDir),
+		DefaultBranch: v.GetString(KeyDefaultBranch),
+		repoRoot:      repoRoot,
+	}, nil
 }
-
-// WorktreesDir returns the configured worktrees directory (relative to repo root).
-func WorktreesDir() string { return v.GetString(KeyWorktreesDir) }
-
-// DefaultBranch returns the configured default fork branch, or "" if not set.
-func DefaultBranch() string { return v.GetString(KeyDefaultBranch) }
-
-// FilePath returns the absolute path to the config file for the given repo root.
-func FilePath(repoRoot string) string { return filepath.Join(repoRoot, ConfigFileName) }

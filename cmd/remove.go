@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ChristophBe/workstreams/internal/config"
 	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
 )
@@ -29,12 +28,7 @@ The command will fail if the worktree has uncommitted changes. Use
 	RunE: func(_ *cobra.Command, args []string) error {
 		branch := args[0]
 
-		repoRoot, err := worktree.FindRepoRoot()
-		if err != nil {
-			return err
-		}
-
-		if err := worktree.Remove(repoRoot, config.WorktreesDir(), branch); err != nil {
+		if err := deps.wt.Remove(branch); err != nil {
 			if errors.Is(err, worktree.ErrWorktreeNotFound) {
 				return fmt.Errorf("no workstream found for branch %q", branch)
 			}

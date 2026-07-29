@@ -9,9 +9,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ChristophBe/workstreams/internal/config"
-	"github.com/ChristophBe/workstreams/internal/shell"
-	"github.com/ChristophBe/workstreams/internal/worktree"
 	"github.com/spf13/cobra"
 )
 
@@ -39,12 +36,7 @@ Use "workstreams remove <branch>" to clean up.`,
 	RunE: func(_ *cobra.Command, args []string) error {
 		branch := args[0]
 
-		repoRoot, err := worktree.FindRepoRoot()
-		if err != nil {
-			return err
-		}
-
-		if worktree.Exists(repoRoot, config.WorktreesDir(), branch) {
+		if deps.wt.Exists(branch) {
 			return fmt.Errorf("workstream %q already exists — use \"workstreams shell %s\" to re-enter it", branch, branch)
 		}
 
@@ -52,11 +44,11 @@ Use "workstreams remove <branch>" to clean up.`,
 
 		from := fromBranch
 		if from == "" {
-			from = config.DefaultBranch()
+			from = deps.cfg.DefaultBranch
 		}
 
-		createBranch := !branchExists(repoRoot, branch)
-		path, err := worktree.Add(repoRoot, config.WorktreesDir(), branch, createBranch, from)
+		createBranch := !deps.wt.BranchExists(branch)
+		path, err := deps.wt.Add(branch, createBranch, from)
 		if err != nil {
 			return fmt.Errorf("create workstream: %w", err)
 		}
@@ -64,7 +56,7 @@ Use "workstreams remove <branch>" to clean up.`,
 		_, _ = fmt.Fprintf(os.Stdout, "Workstream ready at %s\n", path)
 		_, _ = fmt.Fprintln(os.Stdout, "Opening shell — type 'exit' to return.")
 
-		return shell.Spawn(path, branch)
+		return deps.spawner.Spawn(path, branch)
 	},
 }
 

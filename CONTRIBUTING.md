@@ -28,9 +28,11 @@ go test ./...               # run tests
 ```
 workstreams/
 ├── cmd/                   # Cobra command definitions (thin layer only)
+│   └── deps.go            # WorktreeManager and ShellSpawner interface definitions
 ├── internal/
-│   ├── worktree/          # Git worktree operations
-│   └── shell/             # Shell spawning
+│   ├── config/            # Configuration loading (returns *Config struct)
+│   ├── worktree/          # Git worktree operations (*Manager struct)
+│   └── shell/             # Shell spawning (*Spawner struct)
 ├── docs/                  # Feature and design documentation
 ├── .golangci.yml          # Linter configuration
 ├── .pre-commit-config.yaml
@@ -40,9 +42,9 @@ workstreams/
 ```
 
 **Rules:**
-- Business logic lives in `internal/`. The `cmd/` layer only parses arguments, calls `internal/` functions, and formats output.
+- Business logic lives in `internal/`. The `cmd/` layer only parses arguments, calls internal methods via interfaces, and formats output.
 - No package-level `init()` side-effects beyond registering Cobra commands.
-- No global mutable state outside of Cobra command variables.
+- No global mutable state outside of Cobra command variables and the `deps` struct in `cmd/deps.go`.
 
 ---
 
@@ -67,6 +69,21 @@ workstreams/
 - Use `t.Setenv()` instead of `os.Setenv` so the test framework restores the environment after each test.
 - Integration tests that invoke git commands must clear git hook environment variables (`GIT_DIR`, `GIT_INDEX_FILE`, `GIT_WORK_TREE`) to avoid interference when running from within a git hook.
 - Aim for meaningful tests over high line coverage. Test behaviour, not implementation.
+
+### Dependency injection
+
+The codebase follows Go's "accept interfaces, return structs" principle:
+
+- **Interfaces are defined by the consumer.** `cmd/deps.go` defines `WorktreeManager` and `ShellSpawner` — the two interfaces the `cmd` layer needs. Internal packages know nothing about these interfaces.
+- **Internal packages return concrete structs.** `config.Load` returns `*config.Config`, `worktree.NewManager` returns `*worktree.Manager`, `shell.NewSpawner` returns `*shell.Spawner`. These types satisfy the interfaces in `cmd/deps.go` without importing the `cmd` package.
+- **A single wiring point.** `PersistentPreRunE` in `cmd/root.go` constructs all concrete types and stores them in the package-level `deps` struct. All subcommands read from `deps` — they never import internal packages for their implementations.
+- **Testing cmd commands.** Because subcommands depend on interfaces, you can write `cmd` tests using lightweight fake implementations:
+
+  ```go
+  type fakeWorktreeManager struct{ exists bool }
+  func (f *fakeWorktreeManager) Exists(branch string) bool { return f.exists }
+  // … implement other interface methods
+  ```
 
 ### Documentation
 
