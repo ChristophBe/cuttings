@@ -8,29 +8,27 @@ linters:
     - revive
     - errorlint
     - gosec
+  settings:
+    revive:
+      rules:
+        - name: exported
+        - name: var-naming
+        - name: error-return
+        - name: error-strings
+        - name: increment-decrement
+        # package-comments requires a doc comment in every file; Go convention
+        # requires it in only one file per package (root.go in our case).
+        - name: package-comments
+          disabled: true
 
 formatters:
   enable:
     - gofmt
     - goimports
-
-formatters-settings:
-  goimports:
-    local-prefixes:
-      - github.com/ChristophBe/workstreams
-
-linters-settings:
-  revive:
-    rules:
-      - name: exported
-      - name: var-naming
-      - name: error-return
-      - name: error-strings
-      - name: increment-decrement
-      # package-comments requires a doc comment in every file; Go convention
-      # requires it in only one file per package (root.go in our case).
-      - name: package-comments
-        disabled: true
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ChristophBe/workstreams
 
 issues:
   max-issues-per-linter: 0
