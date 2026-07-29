@@ -1,0 +1,2 @@
+worktrees_dir: .worktrees
+default_branch: "main"
