@@ -110,6 +110,23 @@ workstreams new feature/new-dashboard
 # with no branch conflicts or file-lock issues
 ```
 
+## Shell Completion
+
+`workstreams` supports tab-completion for branch names and active workstreams. Generate and install the completion script for your shell:
+
+```bash
+# Bash
+workstreams completion bash >> ~/.bashrc
+
+# Zsh
+workstreams completion zsh >> "${fpath[1]}/_workstreams"
+
+# Fish
+workstreams completion fish > ~/.config/fish/completions/workstreams.fish
+```
+
+After restarting your shell (or sourcing the file), `workstreams shell <TAB>` and `workstreams remove <TAB>` will suggest active workstreams, and `workstreams new <TAB>` will suggest existing local branches.
+
 ## See Also
 
 - [Feature documentation](docs/features.md) — detailed feature spec, flags, and limitations
