@@ -7,9 +7,9 @@ Thank you for contributing to `workstreams`. This document covers the developmen
 ## Development Setup
 
 **Prerequisites:**
-- Go 1.22 or later
-- [pre-commit](https://pre-commit.com/) (`brew install pre-commit`)
-- [golangci-lint](https://golangci-lint.run/) (`brew install golangci-lint`)
+- Go 1.22 or later — [golang.org/doc/install](https://golang.org/doc/install)
+- [pre-commit](https://pre-commit.com/index.html#installation) — see installation instructions for your platform
+- [golangci-lint](https://golangci-lint.run/welcome/install/) — see installation instructions for your platform
 
 **Setup:**
 
