@@ -151,6 +151,23 @@ func (m *Manager) BranchExists(branch string) bool {
 	return cmd2.Run() == nil
 }
 
+// ListBranches returns the names of all local branches in the repository.
+func (m *Manager) ListBranches() ([]string, error) {
+	cmd := exec.Command("git", "branch", "--format=%(refname:short)")
+	cmd.Dir = m.repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git branch: %w", err)
+	}
+	var branches []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			branches = append(branches, line)
+		}
+	}
+	return branches, nil
+}
+
 // CurrentBranch returns the name of the branch currently checked out in the
 // main worktree. Returns "HEAD" if the repository is in detached HEAD state.
 func (m *Manager) CurrentBranch() (string, error) {

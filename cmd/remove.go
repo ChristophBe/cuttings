@@ -24,8 +24,9 @@ so you can re-create the workstream later with "workstreams new <branch>".
 
 The command will fail if the worktree has uncommitted changes. Use
 "git -C .worktrees/<branch> checkout -- ." to discard them first.`,
-	Args:    cobra.ExactArgs(1),
-	Example: "  workstreams remove feature/my-feature",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeWorkstreams,
+	Example:           "  workstreams remove feature/my-feature",
 	RunE: func(_ *cobra.Command, args []string) error {
 		branch := args[0]
 

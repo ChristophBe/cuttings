@@ -289,6 +289,71 @@ func TestAdd_CustomWorktreesDir(t *testing.T) {
 	}
 }
 
+func TestListBranches_ReturnsCurrentBranch(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	branches, err := m.ListBranches()
+	if err != nil {
+		t.Fatalf("ListBranches() unexpected error: %v", err)
+	}
+	if len(branches) != 1 || branches[0] != "main" {
+		t.Errorf("ListBranches() = %v, want [main]", branches)
+	}
+}
+
+func TestListBranches_ReturnsAllBranches(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	run := func(args ...string) {
+		t.Helper()
+		//nolint:gosec // test helper — args are controlled literals, not user input.
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("branch", "feature/a")
+	run("branch", "feature/b")
+
+	branches, err := m.ListBranches()
+	if err != nil {
+		t.Fatalf("ListBranches() unexpected error: %v", err)
+	}
+
+	want := map[string]bool{"main": true, "feature/a": true, "feature/b": true}
+	if len(branches) != len(want) {
+		t.Fatalf("ListBranches() returned %d branches, want %d: %v", len(branches), len(want), branches)
+	}
+	for _, b := range branches {
+		if !want[b] {
+			t.Errorf("unexpected branch %q in ListBranches()", b)
+		}
+	}
+}
+
+func TestListBranches_DetachedHeadNotListed(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	// Create a detached HEAD worktree; its "HEAD" should not appear in branches.
+	if _, err := m.AddDetached("ws-detached", ""); err != nil {
+		t.Fatalf("AddDetached() setup: %v", err)
+	}
+
+	branches, err := m.ListBranches()
+	if err != nil {
+		t.Fatalf("ListBranches() unexpected error: %v", err)
+	}
+	for _, b := range branches {
+		if b == "HEAD" || b == "ws-detached" {
+			t.Errorf("ListBranches() should not contain %q", b)
+		}
+	}
+}
+
 func TestCurrentBranch(t *testing.T) {
 	dir := initRepo(t)
 	m := worktree.NewManager(dir, ".worktrees")

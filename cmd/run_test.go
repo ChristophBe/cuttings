@@ -58,6 +58,7 @@ func (m *mockWorktreeManager) Remove(key string) error {
 	m.removeKey = key
 	return m.removeErr
 }
+func (m *mockWorktreeManager) ListBranches() ([]string, error)    { return nil, nil }
 func (m *mockWorktreeManager) List() ([]worktree.Worktree, error) { return nil, nil }
 func (m *mockWorktreeManager) Path(_ string) string               { return "" }
 

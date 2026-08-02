@@ -19,8 +19,9 @@ var shellCmd = &cobra.Command{
 The workstream must already exist — use "workstreams new <branch>" to create one.
 
 WORKSTREAM_BRANCH and WORKSTREAM_PATH are set in the spawned shell.`,
-	Args:    cobra.ExactArgs(1),
-	Example: "  workstreams shell feature/my-feature",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeWorkstreams,
+	Example:           "  workstreams shell feature/my-feature",
 	RunE: func(_ *cobra.Command, args []string) error {
 		branch := args[0]
 

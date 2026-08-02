@@ -125,4 +125,6 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.Flags().StringVar(&runBranch, "branch", "", "branch to create a worktree for (created if it does not exist)")
 	runCmd.Flags().StringVar(&runFrom, "from", "", "commit-ish to base the worktree on (default: HEAD)")
+	_ = runCmd.RegisterFlagCompletionFunc("branch", completeBranches)
+	_ = runCmd.RegisterFlagCompletionFunc("from", completeBranches)
 }
