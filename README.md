@@ -112,23 +112,27 @@ workstreams new feature/new-dashboard
 
 ## Shell Completion
 
-`workstreams` supports tab-completion for branch names and active workstreams. Generate and install the completion script for your shell:
+`workstreams` supports tab-completion for branch names and active workstreams. Quick setup:
 
 ```bash
 # Bash
 workstreams completion bash >> ~/.bashrc
 
 # Zsh
-workstreams completion zsh >> "${fpath[1]}/_workstreams"
+mkdir -p ~/.zsh/completions
+workstreams completion zsh > ~/.zsh/completions/_workstreams
 
 # Fish
 workstreams completion fish > ~/.config/fish/completions/workstreams.fish
 ```
 
-After restarting your shell (or sourcing the file), `workstreams shell <TAB>` and `workstreams remove <TAB>` will suggest active workstreams, and `workstreams new <TAB>` will suggest existing local branches.
+After restarting your shell, `workstreams shell <TAB>` and `workstreams remove <TAB>` will suggest active workstreams, and `workstreams new <TAB>` will suggest local branches.
+
+See [docs/shell-completion.md](docs/shell-completion.md) for detailed setup instructions per shell, including Oh My Zsh and notes on Bash versions.
 
 ## See Also
 
 - [Feature documentation](docs/features.md) — detailed feature spec, flags, and limitations
+- [Shell completion](docs/shell-completion.md) — per-shell setup instructions
 - [Contributing guide](CONTRIBUTING.md) — coding guidelines and development workflow
 - `git worktree` — the underlying git mechanism
