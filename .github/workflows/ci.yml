@@ -22,10 +22,10 @@ jobs:
           cache: true
 
       - name: Build
-        run: go build ./...
+        run: make build
 
       - name: Test
-        run: go test -race -coverprofile=coverage.out ./...
+        run: make test
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7

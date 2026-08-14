@@ -18,11 +18,25 @@ When working with AI coding assistants (or simply juggling multiple features), y
 
 ## Installation
 
+### Download pre-built binary (recommended)
+
+Download the latest release for your platform from the [GitHub Releases page](https://github.com/ChristophBe/workstreams/releases/latest), extract the archive, and move the binary to a directory on your `PATH`:
+
+```bash
+# Example for Linux amd64
+tar -xzf workstreams_linux_amd64.tar.gz
+mv workstreams /usr/local/bin/
+```
+
+Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`.
+
+### Via Go install
+
 ```bash
 go install github.com/ChristophBe/workstreams@latest
 ```
 
-Or build from source:
+### Build from source
 
 ```bash
 git clone https://github.com/ChristophBe/workstreams.git
