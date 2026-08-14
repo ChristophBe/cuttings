@@ -44,6 +44,16 @@ cd workstreams
 make install
 ```
 
+## Releasing
+
+Create and push a version tag to trigger the release pipeline:
+
+```bash
+make tag VERSION=v1.2.3
+```
+
+This runs tests and lint in CI before building multi-platform binaries and publishing them to GitHub Releases.
+
 ## Usage
 
 ### Create a new workstream
