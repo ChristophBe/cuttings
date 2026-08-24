@@ -33,6 +33,7 @@ workstreams/
 │   ├── config/            # Configuration loading (returns *Config struct)
 │   ├── worktree/          # Git worktree operations (*Manager struct)
 │   └── shell/             # Shell spawning (*Spawner struct)
+├── e2e/                   # Black-box CLI tests (build tag: e2e)
 ├── docs/                  # Feature and design documentation
 ├── tools/
 │   └── gendocs/           # Regenerates the command reference in docs/features.md
@@ -69,8 +70,16 @@ workstreams/
 - Unit tests live next to the code they test (`*_test.go` in the same package).
 - Use `t.TempDir()` for temporary directories — they are automatically cleaned up.
 - Use `t.Setenv()` instead of `os.Setenv` so the test framework restores the environment after each test.
-- Integration tests that invoke git commands must clear git hook environment variables (`GIT_DIR`, `GIT_INDEX_FILE`, `GIT_WORK_TREE`) to avoid interference when running from within a git hook.
+- Integration tests that invoke git commands must clear git hook environment variables (`GIT_DIR`, `GIT_INDEX_FILE`, `GIT_WORK_TREE`, `GIT_OBJECT_DIRECTORY`, `GIT_COMMON_DIR`) to avoid interference when running from within a git hook.
 - Aim for meaningful tests over high line coverage. Test behaviour, not implementation.
+
+### End-to-end (e2e) tests
+
+- Black-box CLI tests live in `e2e/` and exercise the compiled `workstreams` binary as a subprocess against real, throwaway git repositories — not the Go API directly. `e2e/main_test.go`'s `TestMain` builds the binary once and reuses it across the suite.
+- They are gated behind the `e2e` build tag (`//go:build e2e`), so plain `go build ./...`, `go vet ./...`, and `go test ./...` (including the pre-commit `go-test` hook) skip them automatically. Run them explicitly with `make e2e` (or `go test -tags=e2e ./e2e/...`).
+- **Every new command, flag, or behavior change must include an e2e scenario in `e2e/`, in addition to unit tests for the underlying `internal/` logic and `cmd/` `RunE` wiring.**
+- e2e tests must stay hermetic: each test gets its own throwaway repo and an isolated `$HOME` via the `harness` helper in `e2e/harness_test.go` — never rely on the developer's or CI runner's real environment.
+- Commands that spawn an interactive shell (`new`, `shell`) replace the process via `syscall.Exec`, so a real shell would hang waiting for input. Set `SHELL` to the fixture at `e2e/testdata/fakeshell.sh` (a non-interactive script that echoes the injected env vars and exits) when exercising them — see `fakeShellPath()` in `e2e/repo_test.go`.
 
 ### Dependency injection
 
@@ -130,6 +139,8 @@ Run all hooks manually:
 pre-commit run --all-files
 ```
 
+`make e2e` intentionally does **not** run on every commit — it builds a fresh binary and spins up real git repositories per test, which is too slow for a commit hook. It runs in CI on every push and pull request instead (see the `E2E` job in `.github/workflows/ci.yml`).
+
 ---
 
 ## Pull Requests
@@ -145,6 +156,8 @@ The `## Commands` section of `docs/features.md` is generated from each command's
 `make generate-docs` and commit the result — CI fails the build if the
 generated section is out of date. The surrounding sections (Environment
 Variables, Storage Layout, Limitations, Exit Codes) are still edited by hand.
+PRs that introduce new CLI flags or commands should also include a
+corresponding e2e scenario in `e2e/`.
 
 ---
 
@@ -154,7 +167,8 @@ Variables, Storage Layout, Limitations, Exit Codes) are still edited by hand.
 |---------------|--------------------------------------|
 | `make build`  | Build the binary to `./bin/workstreams` |
 | `make install`| Install to `$GOPATH/bin`             |
-| `make test`   | Run all tests                        |
+| `make test`   | Run all unit tests                   |
+| `make e2e`    | Run end-to-end CLI tests             |
 | `make lint`   | Run golangci-lint                    |
 | `make generate-docs` | Regenerate the command reference in `docs/features.md` |
 | `make clean`  | Remove build artefacts               |

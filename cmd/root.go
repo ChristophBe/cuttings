@@ -6,9 +6,7 @@ Copyright © 2026 Christoph Becker
 package cmd
 
 import (
-	"errors"
 	"os"
-	"os/exec"
 
 	"github.com/spf13/cobra"
 
@@ -58,13 +56,13 @@ func RootCmd() *cobra.Command {
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
+//
+// A returned error always maps to exit code 1 (see docs/features.md's Exit
+// Codes table). The "run" command is the sole exception: it propagates its
+// child command's exit code directly via exitFn/os.Exit before RunE returns,
+// so that path never reaches here.
 func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			os.Exit(exitErr.ExitCode())
-		}
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

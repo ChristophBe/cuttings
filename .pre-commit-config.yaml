@@ -6,6 +6,14 @@ repos:
         name: go fmt
       - id: go-vet
         name: go vet
+        # This hook runs `go vet` on explicit per-file lists rather than
+        # package paths. Every file in e2e/ carries "//go:build e2e" and no
+        # -tags flag is passed here, so go vet errors ("build constraints
+        # exclude all Go files") instead of skipping them the way `go build
+        # ./...`/`go test ./...` do. e2e/ is already vetted (via govet) by
+        # the golangci-lint hook below, which has build-tags: [e2e] set in
+        # .golangci.yml.
+        exclude: ^e2e/
       - id: go-build
         name: go build
 

@@ -39,10 +39,24 @@ jobs:
         with:
           version: v2.12.2
 
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: E2E tests
+        run: make e2e
+
   goreleaser:
     name: Release
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test, lint, e2e]
     steps:
       - uses: actions/checkout@v7
         with:

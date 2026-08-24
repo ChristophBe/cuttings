@@ -7,7 +7,7 @@ BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS    := -X 'github.com/ChristophBe/workstreams/cmd.Version=$(VERSION)' \
               -X 'github.com/ChristophBe/workstreams/cmd.BuildTime=$(BUILD_TIME)'
 
-.PHONY: build install test lint clean tag generate-docs
+.PHONY: build install test e2e lint clean tag generate-docs help
 
 ## build: compile the binary to ./bin/workstreams
 build:
@@ -17,9 +17,13 @@ build:
 install:
 	go install -ldflags "$(LDFLAGS)" .
 
-## test: run all tests
+## test: run all unit tests
 test:
 	go test -race -coverprofile=coverage.out ./...
+
+## e2e: run end-to-end CLI tests (builds the binary and exercises it as a black box)
+e2e:
+	go test -tags=e2e -count=1 ./e2e/...
 
 ## lint: run golangci-lint
 lint:
