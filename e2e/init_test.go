@@ -15,6 +15,7 @@ func TestInit_Fresh(t *testing.T) {
 	content := readConfigFile(t, dir)
 	requireContains(t, content, "worktrees_dir: .worktrees")
 	requireContains(t, content, `default_branch: ""`)
+	requireContains(t, content, "run_cleanup_on_signal: true")
 }
 
 func TestInit_AlreadyExists_NoOverwrite(t *testing.T) {
@@ -51,4 +52,15 @@ func TestInit_OutsideRepo(t *testing.T) {
 	r := h.run("init")
 	requireExitCode(t, r, 1)
 	requireContains(t, r.stderr, "not a git repository")
+}
+
+// TestInit_ShorthandOverwrite verifies -o is equivalent to --overwrite.
+func TestInit_ShorthandOverwrite(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+	requireExitCode(t, h.run("init"), 0)
+
+	r := h.run("init", "-o")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stdout, "Created")
 }

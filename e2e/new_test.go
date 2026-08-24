@@ -95,3 +95,19 @@ func TestNew_OutsideRepo(t *testing.T) {
 	requireExitCode(t, r, 1)
 	requireContains(t, r.stderr, "not a git repository")
 }
+
+// TestNew_ShorthandFrom verifies -f is equivalent to --from.
+func TestNew_ShorthandFrom(t *testing.T) {
+	dir := initRepo(t)
+	runGit(t, dir, "checkout", "-b", "alt")
+	commitFile(t, dir, "alt-only.txt", "alt content\n", "add alt-only file")
+	runGit(t, dir, "checkout", "main")
+
+	h := newHarness(t, dir)
+	newWorkstream(t, h, "foo", "-f", "alt")
+
+	wantPath := filepath.Join(dir, ".worktrees", "foo")
+	if _, err := os.Stat(filepath.Join(wantPath, "alt-only.txt")); err != nil {
+		t.Fatalf("expected alt-only.txt in worktree forked from alt via -f: %v", err)
+	}
+}
