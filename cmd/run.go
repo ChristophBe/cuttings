@@ -88,17 +88,26 @@ The exit code of the command is propagated to the calling shell.`,
 	Args:    cobra.MinimumNArgs(1),
 	Example: "  workstreams run -- make test\n  workstreams run --branch feature/foo -- go test ./...",
 	RunE: func(_ *cobra.Command, args []string) error {
-		if cleaned, sweepErr := deps.wt.SweepOrphans(); sweepErr != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "warning: orphan sweep failed: %v\n", sweepErr)
-		} else {
-			for _, key := range cleaned {
-				_, _ = fmt.Fprintf(os.Stdout, "Cleaned up orphaned workstream from a previous run: %s\n", key)
+		cleanupOnSignal := deps.cfg.RunCleanupOnSignal
+
+		if cleanupOnSignal {
+			if cleaned, sweepErr := deps.wt.SweepOrphans(); sweepErr != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: orphan sweep failed: %v\n", sweepErr)
+			} else {
+				for _, key := range cleaned {
+					_, _ = fmt.Fprintf(os.Stdout, "Cleaned up orphaned workstream from a previous run: %s\n", key)
+				}
 			}
 		}
 
+		// sigCh is only ever written to when cleanupOnSignal is true; left
+		// unregistered otherwise so run falls back to plain defer-only cleanup
+		// (matching Go's default, uncaught signal disposition).
 		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
-		defer signal.Stop(sigCh)
+		if cleanupOnSignal {
+			signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+			defer signal.Stop(sigCh)
+		}
 
 		var (
 			path        string
@@ -142,8 +151,10 @@ The exit code of the command is propagated to the calling shell.`,
 			}
 		}
 
-		if lockErr := deps.wt.Lock(worktreeKey); lockErr != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "warning: could not record run lock: %v\n", lockErr)
+		if cleanupOnSignal {
+			if lockErr := deps.wt.Lock(worktreeKey); lockErr != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: could not record run lock: %v\n", lockErr)
+			}
 		}
 
 		// exitCode is set when the command exits with a non-zero status so we
@@ -163,8 +174,10 @@ The exit code of the command is propagated to the calling shell.`,
 			if removeErr := deps.wt.Remove(worktreeKey); removeErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: cleanup failed: %v\n", removeErr)
 			}
-			if unlockErr := deps.wt.Unlock(worktreeKey); unlockErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "warning: could not remove run lock: %v\n", unlockErr)
+			if cleanupOnSignal {
+				if unlockErr := deps.wt.Unlock(worktreeKey); unlockErr != nil {
+					_, _ = fmt.Fprintf(os.Stderr, "warning: could not remove run lock: %v\n", unlockErr)
+				}
 			}
 		}()
 

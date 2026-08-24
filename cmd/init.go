@@ -26,8 +26,9 @@ and the default branch to fork from when creating new workstreams.
 
 Settings can also be overridden at runtime via environment variables:
 
-  WORKSTREAMS_WORKTREES_DIR    override worktrees_dir
-  WORKSTREAMS_DEFAULT_BRANCH   override default_branch
+  WORKSTREAMS_WORKTREES_DIR         override worktrees_dir
+  WORKSTREAMS_DEFAULT_BRANCH        override default_branch
+  WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL override run_cleanup_on_signal
 
 The config file is intended to be committed to the repository so the entire
 team shares the same settings. Use --overwrite to replace an existing file.`,
@@ -50,9 +51,17 @@ team shares the same settings. Use --overwrite to replace an existing file.`,
 # Leave empty to use HEAD.
 # Override with env var: WORKSTREAMS_DEFAULT_BRANCH
 %s: %q
+
+# run_cleanup_on_signal: whether "workstreams run" installs signal handling
+# (SIGINT/SIGTERM/SIGHUP) and orphan detection (SIGKILL/crash) so its
+# temporary worktree is still cleaned up when the process is killed. Set to
+# false to fall back to plain defer-only cleanup.
+# Override with env var: WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL
+%s: %t
 `,
 			config.KeyWorktreesDir, config.DefaultWorktreesDir,
 			config.KeyDefaultBranch, config.DefaultDefaultBranch,
+			config.KeyRunCleanupOnSignal, config.DefaultRunCleanupOnSignal,
 		)
 
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil { //nolint:gosec // 0644 is appropriate for a committed config file
