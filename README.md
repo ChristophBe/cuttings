@@ -134,6 +134,24 @@ workstreams new feature/new-dashboard
 # with no branch conflicts or file-lock issues
 ```
 
+### Parallelizing from inside a single session
+
+For cases where you'd rather not juggle terminals yourself, this repo ships
+a Claude Code skill — [`.claude/skills/workstreams-parallel`](.claude/skills/workstreams-parallel) —
+that lets Claude split a task into independent branches, create a
+`workstreams` workstream for each one, and dispatch a background subagent
+into each to work in parallel, all from within one session.
+
+To use it in another project, copy the skill directory into that project's
+`.claude/skills/` (or into `~/.claude/skills/` to make it available
+everywhere), then ask Claude to parallelize your work, e.g. "spin up
+workstreams for the auth refactor and the new dashboard and work on them in
+parallel":
+
+```bash
+cp -r .claude/skills/workstreams-parallel /path/to/other-project/.claude/skills/
+```
+
 ## Shell Completion
 
 `workstreams` supports tab-completion for branch names and active workstreams. Quick setup:
