@@ -5,6 +5,8 @@ Copyright © 2026 Christoph Becker
 package cmd
 
 import (
+	"context"
+
 	"github.com/ChristophBe/workstreams/internal/config"
 	"github.com/ChristophBe/workstreams/internal/worktree"
 )
@@ -22,6 +24,9 @@ type WorktreeManager interface {
 	Exists(branch string) bool
 	BranchExists(branch string) bool
 	Path(branch string) string
+	Lock(key string) error
+	Unlock(key string) error
+	SweepOrphans() ([]string, error)
 }
 
 // ShellSpawner abstracts interactive shell spawning for the cmd layer.
@@ -33,7 +38,7 @@ type ShellSpawner interface {
 // CommandRunner abstracts non-interactive command execution for the cmd layer.
 // It is satisfied by *shell.Spawner.
 type CommandRunner interface {
-	Run(dir, branch string, command []string) error
+	Run(ctx context.Context, dir, branch string, command []string) error
 }
 
 // deps holds the resolved dependencies for the current command invocation.

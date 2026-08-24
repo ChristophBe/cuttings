@@ -4,12 +4,14 @@ Copyright © 2026 Christoph Becker
 package shell_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ChristophBe/workstreams/internal/shell"
 )
@@ -48,7 +50,7 @@ func TestRun_Success(t *testing.T) {
 	s := shell.NewSpawner()
 	dir := t.TempDir()
 
-	if err := s.Run(dir, "test-branch", []string{"true"}); err != nil {
+	if err := s.Run(context.Background(), dir, "test-branch", []string{"true"}); err != nil {
 		t.Errorf("Run() unexpected error: %v", err)
 	}
 }
@@ -57,7 +59,7 @@ func TestRun_ExitError(t *testing.T) {
 	s := shell.NewSpawner()
 	dir := t.TempDir()
 
-	err := s.Run(dir, "test-branch", []string{"false"})
+	err := s.Run(context.Background(), dir, "test-branch", []string{"false"})
 	if err == nil {
 		t.Fatal("Run() expected error for failing command, got nil")
 	}
@@ -75,7 +77,7 @@ func TestRun_ExitCode(t *testing.T) {
 	s := shell.NewSpawner()
 	dir := t.TempDir()
 
-	err := s.Run(dir, "test-branch", []string{"sh", "-c", "exit 42"})
+	err := s.Run(context.Background(), dir, "test-branch", []string{"sh", "-c", "exit 42"})
 
 	var exitErr *exec.ExitError
 	if !errors.As(err, &exitErr) {
@@ -92,7 +94,7 @@ func TestRun_WorkingDirectory(t *testing.T) {
 	sentinel := filepath.Join(dir, "was-here.txt")
 
 	// Write a file in the working directory to prove the command ran there.
-	if err := s.Run(dir, "test-branch", []string{"sh", "-c", "touch was-here.txt"}); err != nil {
+	if err := s.Run(context.Background(), dir, "test-branch", []string{"sh", "-c", "touch was-here.txt"}); err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
 
@@ -106,7 +108,7 @@ func TestRun_EnvVarsInjected(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "branch.txt")
 
-	if err := s.Run(dir, "my-branch", []string{"sh", "-c", "printf '%s' \"$WORKSTREAM_BRANCH\" > branch.txt"}); err != nil {
+	if err := s.Run(context.Background(), dir, "my-branch", []string{"sh", "-c", "printf '%s' \"$WORKSTREAM_BRANCH\" > branch.txt"}); err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
 
@@ -125,7 +127,7 @@ func TestRun_CommandWithArgs(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "args.txt")
 
-	if err := s.Run(dir, "test-branch", []string{"sh", "-c", "printf '%s' \"$1\" > args.txt", "--", "hello"}); err != nil {
+	if err := s.Run(context.Background(), dir, "test-branch", []string{"sh", "-c", "printf '%s' \"$1\" > args.txt", "--", "hello"}); err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
 
@@ -153,5 +155,43 @@ func TestEnvVarNotDuplicated(t *testing.T) {
 
 	if count != 1 {
 		t.Errorf("WORKSTREAM_BRANCH appears %d times in env, want exactly 1", count)
+	}
+}
+
+func TestRun_ContextCancellation_KillsChild(t *testing.T) {
+	s := shell.NewSpawner()
+	dir := t.TempDir()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err := s.Run(ctx, dir, "test-branch", []string{"sleep", "5"})
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Run() expected error when context is canceled, got nil")
+	}
+	if elapsed >= 5*time.Second {
+		t.Errorf("Run() took %v, expected it to return promptly after context cancellation", elapsed)
+	}
+}
+
+func TestRun_ContextAlreadyCanceled_ReturnsQuickly(t *testing.T) {
+	s := shell.NewSpawner()
+	dir := t.TempDir()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	start := time.Now()
+	err := s.Run(ctx, dir, "test-branch", []string{"sleep", "5"})
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Run() expected error for an already-canceled context, got nil")
+	}
+	if elapsed >= 1*time.Second {
+		t.Errorf("Run() took %v, expected it to return quickly for an already-canceled context", elapsed)
 	}
 }
