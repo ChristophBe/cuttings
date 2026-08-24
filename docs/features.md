@@ -23,8 +23,9 @@ and the default branch to fork from when creating new workstreams.
 
 Settings can also be overridden at runtime via environment variables:
 
-  WORKSTREAMS_WORKTREES_DIR    override worktrees_dir
-  WORKSTREAMS_DEFAULT_BRANCH   override default_branch
+  WORKSTREAMS_WORKTREES_DIR         override worktrees_dir
+  WORKSTREAMS_DEFAULT_BRANCH        override default_branch
+  WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL override run_cleanup_on_signal
 
 The config file is intended to be committed to the repository so the entire
 team shares the same settings. Use --overwrite to replace an existing file.
@@ -44,7 +45,7 @@ workstreams init [flags]
 
 ```
   -h, --help        help for init
-      --overwrite   overwrite an existing config file
+  -o, --overwrite   overwrite an existing config file
 ```
 
 ### workstreams list (alias: ls)
@@ -103,7 +104,7 @@ workstreams new <branch> [flags]
 #### Options
 
 ```
-      --from string   branch or commit to fork from when creating a new branch (default: HEAD)
+  -f, --from string   branch or commit to fork from when creating a new branch (default: HEAD)
   -h, --help          help for new
 ```
 
@@ -172,8 +173,8 @@ workstreams run -- <command> [args...] [flags]
 #### Options
 
 ```
-      --branch string   branch to create a worktree for (created if it does not exist)
-      --from string     commit-ish to base the worktree on (default: HEAD)
+  -b, --branch string   branch to create a worktree for (created if it does not exist)
+  -f, --from string     commit-ish to base the worktree on (default: HEAD)
   -h, --help            help for run
 ```
 
@@ -202,6 +203,54 @@ workstreams shell <branch> [flags]
 
 ```
   -h, --help   help for shell
+```
+
+### workstreams skill
+
+Install coding-agent instructions for using workstreams in parallel
+
+#### Synopsis
+
+Install instruction files that teach a coding agent to use workstreams
+non-interactively for parallel, per-branch work.
+
+Supported targets:
+
+  claude      Claude Code skill (.claude/skills/workstreams-parallel/)
+  agents-md   Generic AGENTS.md section, read by Codex CLI and others
+  cursor      Cursor project rules (.cursor/rules/)
+  copilot     GitHub Copilot repository instructions (.github/)
+
+--scope local (the default) installs into the current git repository.
+--scope global installs into your home directory, for use across every
+project. Not every target has a meaningful global location (Cursor and
+Copilot have none) — those are skipped for --scope global rather than
+erroring.
+
+claude and cursor are whole files; installing over an existing one requires
+--overwrite. agents-md and copilot only update a marked section within the
+target file, leaving the rest of it untouched, so --overwrite does not apply
+to them.
+
+```
+workstreams skill [flags]
+```
+
+#### Examples
+
+```
+  workstreams skill
+  workstreams skill -t claude
+  workstreams skill -s global -t claude,agents-md
+```
+
+#### Options
+
+```
+  -h, --help             help for skill
+  -o, --overwrite        overwrite existing whole-file targets (claude, cursor)
+  -s, --scope string     install scope: local or global (default "local")
+  -t, --target strings   comma-separated targets: claude, agents-md, cursor, copilot, all (default [claude,agents-md,cursor,copilot])
 ```
 
 ### workstreams version
