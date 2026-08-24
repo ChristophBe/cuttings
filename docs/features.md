@@ -8,72 +8,217 @@
 
 ## Commands
 
-### `workstreams new <branch>`
+<!-- BEGIN GENERATED COMMANDS: run `make generate-docs` to update, do not edit by hand -->
 
-Creates a new workstream for the given branch and opens an interactive shell inside it.
+### workstreams init
 
-**Behaviour:**
-1. Verifies the current directory is inside a git repository (walks up to find `.git`).
-2. Checks whether a workstream for `<branch>` already exists at `.worktrees/<branch>/`.
-   - If it does, exits with an error and suggests `workstreams shell <branch>`.
-3. Checks whether `<branch>` exists in git (local or remote tracking ref).
-   - If it does **not** exist: runs `git worktree add -b <branch> .worktrees/<branch>/` (creates branch from HEAD).
-   - If it **does** exist: runs `git worktree add .worktrees/<branch>/ <branch>`.
-4. Prints the worktree path and a hint to type `exit`.
-5. Replaces the current process with `$SHELL` (falls back to `/bin/sh`) via `syscall.Exec`, with `WORKSTREAM_BRANCH` and `WORKSTREAM_PATH` injected.
+Create a .workstreams.yaml config file in the repository root
 
-**Branch name handling:**
-Branch names containing `/` (e.g. `feature/foo`) are stored as nested directories: `.worktrees/feature/foo/`. The parent directories are created automatically.
+#### Synopsis
 
-**Flags:** None.
+Create a .workstreams.yaml configuration file in the git repository root.
 
----
+The file holds project-level settings such as the worktrees storage directory
+and the default branch to fork from when creating new workstreams.
 
-### `workstreams list` (alias: `ls`)
+Settings can also be overridden at runtime via environment variables:
 
-Lists all git worktrees in the current repository.
+  WORKSTREAMS_WORKTREES_DIR    override worktrees_dir
+  WORKSTREAMS_DEFAULT_BRANCH   override default_branch
 
-**Output columns:**
-| Column   | Description                                    |
-|----------|------------------------------------------------|
-| `BRANCH` | Branch name checked out in the worktree        |
-| `PATH`   | Absolute path to the worktree directory        |
-| `TYPE`   | `main` (original clone) or `workstream`        |
+The config file is intended to be committed to the repository so the entire
+team shares the same settings. Use --overwrite to replace an existing file.
 
-**Behaviour:**
-- Calls `git worktree list --porcelain` and parses the output.
-- Includes the main worktree (the original clone) marked as `main`.
-- Worktrees in detached HEAD state show an empty branch.
+```
+workstreams init [flags]
+```
 
-**Flags:** None.
+#### Examples
 
----
+```
+  workstreams init
+  workstreams init --overwrite
+```
 
-### `workstreams shell <branch>`
+#### Options
 
-Opens an interactive shell in an existing workstream.
+```
+  -h, --help        help for init
+      --overwrite   overwrite an existing config file
+```
 
-**Behaviour:**
-1. Verifies the workstream at `.worktrees/<branch>/` exists.
-   - If not, exits with an error and suggests `workstreams new <branch>`.
-2. Replaces the current process with `$SHELL` via `syscall.Exec`, with `WORKSTREAM_BRANCH` and `WORKSTREAM_PATH` injected.
+### workstreams list (alias: ls)
 
-**Flags:** None.
+List all active workstreams
 
----
+#### Synopsis
 
-### `workstreams remove <branch>` (alias: `rm`)
+Display all git worktrees managed by workstreams, showing the branch name
+and the absolute path to each worktree directory.
 
-Removes the worktree for the given branch. The branch itself is preserved.
+The main worktree (the original clone) is listed but marked separately.
 
-**Behaviour:**
-1. Verifies the worktree at `.worktrees/<branch>/` exists.
-   - If not, exits with an error.
-2. Runs `git worktree remove .worktrees/<branch>/`.
-   - Fails if the worktree has uncommitted changes. Discard them first with `git -C .worktrees/<branch> checkout -- .`.
-3. Prints a confirmation message.
+```
+workstreams list [flags]
+```
 
-**Flags:** None.
+#### Options
+
+```
+  -h, --help   help for list
+```
+
+### workstreams new
+
+Create a new workstream and open an interactive shell
+
+#### Synopsis
+
+Create a new git worktree for the given branch and open an interactive
+shell inside it. If the branch does not exist it will be created.
+
+The worktree is stored at .worktrees/<branch>/ relative to the repository root.
+Two environment variables are set inside the shell:
+
+  WORKSTREAM_BRANCH  the name of the branch
+  WORKSTREAM_PATH    the absolute path to the worktree directory
+
+Use --from to specify the branch or commit to fork from when creating a new
+branch. If omitted, the new branch is created from HEAD.
+
+Exiting the shell removes you from the workstream but does not delete it.
+Use "workstreams remove <branch>" to clean up.
+
+```
+workstreams new <branch> [flags]
+```
+
+#### Examples
+
+```
+  workstreams new feature/my-feature
+  workstreams new feature/my-feature --from main
+```
+
+#### Options
+
+```
+      --from string   branch or commit to fork from when creating a new branch (default: HEAD)
+  -h, --help          help for new
+```
+
+### workstreams remove (alias: rm)
+
+Remove a workstream worktree
+
+#### Synopsis
+
+Remove the git worktree for the given branch. The branch itself is preserved
+so you can re-create the workstream later with "workstreams new <branch>".
+
+The command will fail if the worktree has uncommitted changes. Use
+"git -C .worktrees/<branch> checkout -- ." to discard them first.
+
+```
+workstreams remove <branch> [flags]
+```
+
+#### Examples
+
+```
+  workstreams remove feature/my-feature
+```
+
+#### Options
+
+```
+  -h, --help   help for remove
+```
+
+### workstreams run
+
+Run a command in a temporary workstream, then clean up
+
+#### Synopsis
+
+Create a temporary git worktree, run the given command inside it, then
+remove the worktree when the command finishes (whether it succeeds or fails).
+
+Only the worktree directory is removed — no branch is created or deleted.
+
+Without --branch, a detached HEAD worktree is created at the current branch's
+HEAD commit (or --from if specified). With --branch, a worktree is created for
+that branch (which is also created if it does not exist yet).
+
+Use -- to separate workstreams flags from the command and its arguments:
+
+  workstreams run -- make test
+  workstreams run --branch feature/foo -- go test ./...
+  workstreams run --from origin/main -- ./scripts/ci.sh
+
+The exit code of the command is propagated to the calling shell.
+
+```
+workstreams run -- <command> [args...] [flags]
+```
+
+#### Examples
+
+```
+  workstreams run -- make test
+  workstreams run --branch feature/foo -- go test ./...
+```
+
+#### Options
+
+```
+      --branch string   branch to create a worktree for (created if it does not exist)
+      --from string     commit-ish to base the worktree on (default: HEAD)
+  -h, --help            help for run
+```
+
+### workstreams shell
+
+Open an interactive shell in an existing workstream
+
+#### Synopsis
+
+Open an interactive shell inside the worktree for the given branch.
+The workstream must already exist — use "workstreams new <branch>" to create one.
+
+WORKSTREAM_BRANCH and WORKSTREAM_PATH are set in the spawned shell.
+
+```
+workstreams shell <branch> [flags]
+```
+
+#### Examples
+
+```
+  workstreams shell feature/my-feature
+```
+
+#### Options
+
+```
+  -h, --help   help for shell
+```
+
+### workstreams version
+
+Print the version and build time
+
+```
+workstreams version [flags]
+```
+
+#### Options
+
+```
+  -h, --help   help for version
+```
+
+<!-- END GENERATED COMMANDS -->
 
 ---
 

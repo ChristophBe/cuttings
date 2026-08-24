@@ -51,3 +51,27 @@ jobs:
         uses: golangci/golangci-lint-action@v9.3.0
         with:
           version: v2.12.2
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Regenerate command reference
+        run: make generate-docs
+
+      - name: Fail if docs/features.md is out of date
+        run: |
+          git diff --exit-code -- docs/features.md || {
+            echo "::error::docs/features.md is out of date — run 'make generate-docs' and commit the result."
+            exit 1
+          }

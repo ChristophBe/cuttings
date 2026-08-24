@@ -34,6 +34,8 @@ workstreams/
 │   ├── worktree/          # Git worktree operations (*Manager struct)
 │   └── shell/             # Shell spawning (*Spawner struct)
 ├── docs/                  # Feature and design documentation
+├── tools/
+│   └── gendocs/           # Regenerates the command reference in docs/features.md
 ├── .golangci.yml          # Linter configuration
 ├── .pre-commit-config.yaml
 ├── Makefile
@@ -138,7 +140,11 @@ pre-commit run --all-files
 4. Open a PR against `main` with a clear description of the change and why it is needed.
 5. Link any related issues.
 
-PRs that introduce new CLI flags or commands should include updates to `docs/features.md`.
+The `## Commands` section of `docs/features.md` is generated from each command's
+`Use`/`Short`/`Long`/`Example`/`Flags`. After adding or changing a command, run
+`make generate-docs` and commit the result — CI fails the build if the
+generated section is out of date. The surrounding sections (Environment
+Variables, Storage Layout, Limitations, Exit Codes) are still edited by hand.
 
 ---
 
@@ -150,4 +156,5 @@ PRs that introduce new CLI flags or commands should include updates to `docs/fea
 | `make install`| Install to `$GOPATH/bin`             |
 | `make test`   | Run all tests                        |
 | `make lint`   | Run golangci-lint                    |
+| `make generate-docs` | Regenerate the command reference in `docs/features.md` |
 | `make clean`  | Remove build artefacts               |

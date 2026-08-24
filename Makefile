@@ -7,7 +7,7 @@ BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS    := -X 'github.com/ChristophBe/workstreams/cmd.Version=$(VERSION)' \
               -X 'github.com/ChristophBe/workstreams/cmd.BuildTime=$(BUILD_TIME)'
 
-.PHONY: build install test lint clean tag
+.PHONY: build install test lint clean tag generate-docs
 
 ## build: compile the binary to ./bin/workstreams
 build:
@@ -28,6 +28,10 @@ lint:
 ## clean: remove build artefacts
 clean:
 	rm -rf $(BIN_DIR)
+
+## generate-docs: regenerate the command reference in docs/features.md
+generate-docs:
+	go run ./tools/gendocs
 
 ## tag: create and push a release tag (usage: make tag VERSION=v1.2.3)
 tag:
