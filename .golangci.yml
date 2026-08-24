@@ -1,5 +1,12 @@
 version: "2"
 
+run:
+  # e2e/*.go is gated behind the "e2e" build tag (see e2e/main_test.go) so it
+  # stays invisible to plain `go build`/`go test`; list the tag here so
+  # golangci-lint still sees and lints those files.
+  build-tags:
+    - e2e
+
 linters:
   # Default linters (errcheck, govet, ineffassign, staticcheck, unused) are
   # enabled automatically. We add revive for style checks and gosec for
