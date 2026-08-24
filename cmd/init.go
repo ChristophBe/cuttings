@@ -66,5 +66,5 @@ team shares the same settings. Use --overwrite to replace an existing file.`,
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-	initCmd.Flags().BoolVar(&overwrite, "overwrite", false, "overwrite an existing config file")
+	initCmd.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "overwrite an existing config file")
 }

@@ -63,6 +63,6 @@ Use "workstreams remove <branch>" to clean up.`,
 
 func init() {
 	rootCmd.AddCommand(newCmd)
-	newCmd.Flags().StringVar(&fromBranch, "from", "", "branch or commit to fork from when creating a new branch (default: HEAD)")
+	newCmd.Flags().StringVarP(&fromBranch, "from", "f", "", "branch or commit to fork from when creating a new branch (default: HEAD)")
 	_ = newCmd.RegisterFlagCompletionFunc("from", completeBranches)
 }
