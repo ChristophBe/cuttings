@@ -4,10 +4,15 @@ Copyright © 2026 Christoph Becker
 package cmd
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/ChristophBe/workstreams/internal/config"
@@ -26,6 +31,10 @@ type mockWorktreeManager struct {
 	currentBranch    string
 	currentBranchErr error
 	removeErr        error
+	lockErr          error
+	unlockErr        error
+	sweepResult      []string
+	sweepErr         error
 
 	// recorded call arguments
 	addBranch       string
@@ -35,17 +44,27 @@ type mockWorktreeManager struct {
 	addDetachedBase string
 	removeCalled    bool
 	removeKey       string
+	lockCalled      bool
+	lockKey         string
+	unlockCalled    bool
+	unlockKey       string
+	sweepCalled     bool
+	// callOrder records the order in which the operations below were invoked,
+	// so tests can assert e.g. that sweep happens before worktree creation.
+	callOrder []string
 }
 
 func (m *mockWorktreeManager) Exists(_ string) bool       { return m.existsResult }
 func (m *mockWorktreeManager) BranchExists(_ string) bool { return m.branchExists }
 func (m *mockWorktreeManager) Add(branch string, createBranch bool, base string) (string, error) {
+	m.callOrder = append(m.callOrder, "Add")
 	m.addBranch = branch
 	m.addCreateBranch = createBranch
 	m.addBase = base
 	return m.addPath, m.addErr
 }
 func (m *mockWorktreeManager) AddDetached(name, base string) (string, error) {
+	m.callOrder = append(m.callOrder, "AddDetached")
 	m.addDetachedName = name
 	m.addDetachedBase = base
 	return m.addDetachedPath, m.addDetachedErr
@@ -54,6 +73,7 @@ func (m *mockWorktreeManager) CurrentBranch() (string, error) {
 	return m.currentBranch, m.currentBranchErr
 }
 func (m *mockWorktreeManager) Remove(key string) error {
+	m.callOrder = append(m.callOrder, "Remove")
 	m.removeCalled = true
 	m.removeKey = key
 	return m.removeErr
@@ -61,9 +81,30 @@ func (m *mockWorktreeManager) Remove(key string) error {
 func (m *mockWorktreeManager) ListBranches() ([]string, error)    { return nil, nil }
 func (m *mockWorktreeManager) List() ([]worktree.Worktree, error) { return nil, nil }
 func (m *mockWorktreeManager) Path(_ string) string               { return "" }
+func (m *mockWorktreeManager) Lock(key string) error {
+	m.callOrder = append(m.callOrder, "Lock")
+	m.lockCalled = true
+	m.lockKey = key
+	return m.lockErr
+}
+func (m *mockWorktreeManager) Unlock(key string) error {
+	m.callOrder = append(m.callOrder, "Unlock")
+	m.unlockCalled = true
+	m.unlockKey = key
+	return m.unlockErr
+}
+func (m *mockWorktreeManager) SweepOrphans() ([]string, error) {
+	m.callOrder = append(m.callOrder, "SweepOrphans")
+	m.sweepCalled = true
+	return m.sweepResult, m.sweepErr
+}
 
 type mockRunner struct {
 	runErr error
+	// runFunc, if set, is invoked instead of returning runErr directly — used
+	// by tests that need to observe or react to ctx (e.g. block until it is
+	// canceled to simulate a signal arriving mid-run).
+	runFunc func(ctx context.Context) error
 
 	// recorded call arguments
 	runDir     string
@@ -71,10 +112,13 @@ type mockRunner struct {
 	runCommand []string
 }
 
-func (m *mockRunner) Run(dir, branch string, command []string) error {
+func (m *mockRunner) Run(ctx context.Context, dir, branch string, command []string) error {
 	m.runDir = dir
 	m.runBranch = branch
 	m.runCommand = command
+	if m.runFunc != nil {
+		return m.runFunc(ctx)
+	}
 	return m.runErr
 }
 
@@ -409,4 +453,202 @@ func TestRunCmd_DefaultBranchUsedAsFromBase(t *testing.T) {
 	if wt.addBase != "develop" {
 		t.Errorf("Add base = %q, want %q (config DefaultBranch)", wt.addBase, "develop")
 	}
+}
+
+// --- orphan sweep ---
+
+func TestRunCmd_SweepOrphans_CalledBeforeCreate(t *testing.T) {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(wt.callOrder) == 0 || wt.callOrder[0] != "SweepOrphans" {
+		t.Errorf("call order = %v, want SweepOrphans first", wt.callOrder)
+	}
+}
+
+func TestRunCmd_SweepOrphans_PrintsCleanedKeys(t *testing.T) {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", sweepResult: []string{"ws-run-123"}}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	stdout := captureStdout(t, func() {
+		if err := callRunE([]string{"true"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(stdout, "Cleaned up orphaned workstream from a previous run: ws-run-123") {
+		t.Errorf("stdout = %q, want it to mention the cleaned-up orphan", stdout)
+	}
+}
+
+func TestRunCmd_SweepOrphans_ErrorIsNonFatal(t *testing.T) {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", sweepErr: errors.New("sweep failed")}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if wt.addDetachedName == "" {
+		t.Error("run should still proceed to create a worktree despite a sweep error")
+	}
+}
+
+// --- run lock / unlock ---
+
+func TestRunCmd_LockCalledAfterWorktreeCreated_UnlockCalledOnCleanup(t *testing.T) {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !wt.lockCalled {
+		t.Error("Lock() was not called")
+	}
+	if !strings.HasPrefix(wt.lockKey, "ws-run-") {
+		t.Errorf("Lock key = %q, want prefix %q", wt.lockKey, "ws-run-")
+	}
+	if !wt.unlockCalled {
+		t.Error("Unlock() was not called")
+	}
+	if wt.unlockKey != wt.lockKey {
+		t.Errorf("Unlock key = %q, want it to match Lock key %q", wt.unlockKey, wt.lockKey)
+	}
+
+	// Lock must happen after the worktree is created (AddDetached), and
+	// Unlock must happen as part of cleanup (after Remove, or at least after
+	// the command finished — call order only guarantees relative ordering of
+	// recorded operations, so check indices directly).
+	lockIdx, addIdx, unlockIdx := -1, -1, -1
+	for i, c := range wt.callOrder {
+		switch c {
+		case "AddDetached":
+			addIdx = i
+		case "Lock":
+			lockIdx = i
+		case "Unlock":
+			unlockIdx = i
+		}
+	}
+	if addIdx >= lockIdx || lockIdx >= unlockIdx {
+		t.Errorf("call order = %v, want AddDetached before Lock before Unlock", wt.callOrder)
+	}
+}
+
+func TestRunCmd_LockFails_RunStillProceeds(t *testing.T) {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", lockErr: errors.New("lock failed")}
+	runner := &mockRunner{}
+	restore := setupRunTest(wt, runner)
+	defer restore()
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if runner.runDir != "/tmp/ws" {
+		t.Error("command was not run despite Lock() failing")
+	}
+	if !wt.removeCalled {
+		t.Error("Remove() was not called despite Lock() failing")
+	}
+}
+
+func TestRunCmd_UnlockFails_CleanupStillReportsSuccess(t *testing.T) {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", unlockErr: errors.New("unlock failed")}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !wt.removeCalled {
+		t.Error("Remove() was not called")
+	}
+}
+
+// --- signal-aware run helper (unit tests, no real OS signals involved) ---
+
+func TestSignalAwareRun_NoSignal_ReturnsUnderlyingError(t *testing.T) {
+	sigCh := make(chan os.Signal, 1)
+	wantErr := errors.New("boom")
+
+	sig, err := signalAwareRun(context.Background(), sigCh, func(_ context.Context) error {
+		return wantErr
+	})
+
+	if !errors.Is(err, wantErr) {
+		t.Errorf("err = %v, want %v", err, wantErr)
+	}
+	if sig != nil {
+		t.Errorf("receivedSig = %v, want nil", sig)
+	}
+}
+
+func TestSignalAwareRun_SignalDuringRun_CancelsContextAndReportsSignal(t *testing.T) {
+	sigCh := make(chan os.Signal, 1)
+	started := make(chan struct{})
+
+	fn := func(ctx context.Context) error {
+		close(started)
+		<-ctx.Done()
+		return ctx.Err()
+	}
+
+	go func() {
+		<-started
+		sigCh <- syscall.SIGTERM
+	}()
+
+	sig, err := signalAwareRun(context.Background(), sigCh, fn)
+
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("err = %v, want context.Canceled", err)
+	}
+	if sig != syscall.SIGTERM {
+		t.Errorf("receivedSig = %v, want SIGTERM", sig)
+	}
+}
+
+func TestSignalExitCode(t *testing.T) {
+	cases := []struct {
+		sig  os.Signal
+		want int
+	}{
+		{syscall.SIGINT, 130},
+		{syscall.SIGTERM, 143},
+		{syscall.SIGHUP, 129},
+	}
+	for _, c := range cases {
+		if got := signalExitCode(c.sig); got != c.want {
+			t.Errorf("signalExitCode(%v) = %d, want %d", c.sig, got, c.want)
+		}
+	}
+}
+
+// captureStdout runs fn with os.Stdout redirected to a pipe and returns
+// everything written to it.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	orig := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = orig }()
+
+	fn()
+
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	return buf.String()
 }

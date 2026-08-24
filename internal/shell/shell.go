@@ -9,6 +9,7 @@ Copyright © 2026 Christoph Becker
 package shell
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -54,11 +55,15 @@ func (s *Spawner) Spawn(dir, branch string) error {
 // Run executes command in dir, forwarding stdin/stdout/stderr to the terminal.
 // WORKSTREAM_BRANCH and WORKSTREAM_PATH are injected into the environment.
 // The error is the command's exit error (which may be *exec.ExitError).
-func (s *Spawner) Run(dir, branch string, command []string) error {
+//
+// If ctx is canceled while the command is running, the child process is
+// killed (the default behavior of exec.CommandContext) and Run returns
+// promptly.
+func (s *Spawner) Run(ctx context.Context, dir, branch string, command []string) error {
 	env := BuildEnv(branch, dir)
 
 	//nolint:gosec // command is user-supplied; this is the tool's purpose.
-	cmd := exec.Command(command[0], command[1:]...)
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	cmd.Dir = dir
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
