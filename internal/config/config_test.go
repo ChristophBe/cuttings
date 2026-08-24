@@ -25,6 +25,9 @@ func TestLoad_NoFile(t *testing.T) {
 	if got := cfg.DefaultBranch; got != config.DefaultDefaultBranch {
 		t.Errorf("DefaultBranch = %q, want %q", got, config.DefaultDefaultBranch)
 	}
+	if got := cfg.RunCleanupOnSignal; got != config.DefaultRunCleanupOnSignal {
+		t.Errorf("RunCleanupOnSignal = %v, want %v", got, config.DefaultRunCleanupOnSignal)
+	}
 }
 
 func TestLoad_FromFile(t *testing.T) {
@@ -47,6 +50,23 @@ func TestLoad_FromFile(t *testing.T) {
 	}
 }
 
+func TestLoad_RunCleanupOnSignal_FromFile(t *testing.T) {
+	dir := t.TempDir()
+	content := "run_cleanup_on_signal: false\n"
+	if err := os.WriteFile(filepath.Join(dir, config.ConfigFileName), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+
+	if cfg.RunCleanupOnSignal {
+		t.Error("RunCleanupOnSignal = true, want false (from config file)")
+	}
+}
+
 func TestLoad_EnvOverride(t *testing.T) {
 	dir := t.TempDir()
 	// Write a file with one value, then override with an env var.
@@ -57,6 +77,7 @@ func TestLoad_EnvOverride(t *testing.T) {
 
 	t.Setenv("WORKSTREAMS_WORKTREES_DIR", ".from-env")
 	t.Setenv("WORKSTREAMS_DEFAULT_BRANCH", "develop")
+	t.Setenv("WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL", "false")
 
 	cfg, err := config.Load(dir)
 	if err != nil {
@@ -68,6 +89,9 @@ func TestLoad_EnvOverride(t *testing.T) {
 	}
 	if got := cfg.DefaultBranch; got != "develop" {
 		t.Errorf("DefaultBranch = %q, want env override %q", got, "develop")
+	}
+	if cfg.RunCleanupOnSignal {
+		t.Error("RunCleanupOnSignal = true, want false (from env override)")
 	}
 }
 

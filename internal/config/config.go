@@ -27,6 +27,10 @@ const (
 	KeyWorktreesDir = "worktrees_dir"
 	// KeyDefaultBranch is the config key for the default fork branch.
 	KeyDefaultBranch = "default_branch"
+	// KeyRunCleanupOnSignal is the config key controlling whether "workstreams
+	// run" cleans up its worktree when interrupted by a signal (SIGINT/SIGTERM/
+	// SIGHUP) or left behind by an uncatchable kill (SIGKILL/crash).
+	KeyRunCleanupOnSignal = "run_cleanup_on_signal"
 
 	// ConfigFileName is the name of the config file placed at the repo root.
 	ConfigFileName = ".workstreams.yaml"
@@ -35,6 +39,8 @@ const (
 	DefaultWorktreesDir = ".worktrees"
 	// DefaultDefaultBranch is the default fork branch (empty = HEAD).
 	DefaultDefaultBranch = ""
+	// DefaultRunCleanupOnSignal is used when run_cleanup_on_signal is not configured.
+	DefaultRunCleanupOnSignal = true
 )
 
 // Config holds the resolved workstreams configuration for a repository.
@@ -44,6 +50,13 @@ type Config struct {
 	// DefaultBranch is the branch or commit-ish new workstreams fork from by default.
 	// An empty string means HEAD.
 	DefaultBranch string
+	// RunCleanupOnSignal controls whether "workstreams run" installs signal
+	// handling (so SIGINT/SIGTERM/SIGHUP still clean up the worktree) and
+	// records a run lock for orphan detection (so a SIGKILL or crash is
+	// cleaned up on the next "run" invocation). Set to false to fall back to
+	// plain defer-only cleanup, e.g. if the lock files or signal handling
+	// interfere with another tool.
+	RunCleanupOnSignal bool
 
 	repoRoot string // unexported; retained for FilePath.
 }
@@ -60,6 +73,7 @@ func Load(repoRoot string) (*Config, error) {
 	v := viper.New()
 	v.SetDefault(KeyWorktreesDir, DefaultWorktreesDir)
 	v.SetDefault(KeyDefaultBranch, DefaultDefaultBranch)
+	v.SetDefault(KeyRunCleanupOnSignal, DefaultRunCleanupOnSignal)
 
 	v.SetEnvPrefix("WORKSTREAMS")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
@@ -73,8 +87,9 @@ func Load(repoRoot string) (*Config, error) {
 	}
 
 	return &Config{
-		WorktreesDir:  v.GetString(KeyWorktreesDir),
-		DefaultBranch: v.GetString(KeyDefaultBranch),
-		repoRoot:      repoRoot,
+		WorktreesDir:       v.GetString(KeyWorktreesDir),
+		DefaultBranch:      v.GetString(KeyDefaultBranch),
+		RunCleanupOnSignal: v.GetBool(KeyRunCleanupOnSignal),
+		repoRoot:           repoRoot,
 	}, nil
 }

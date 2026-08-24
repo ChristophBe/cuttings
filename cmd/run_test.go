@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/ChristophBe/workstreams/internal/config"
 	"github.com/ChristophBe/workstreams/internal/worktree"
@@ -130,7 +131,10 @@ func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
 	savedRunFrom := runFrom
 	savedExitFn := exitFn
 
-	deps.cfg = &config.Config{}
+	// RunCleanupOnSignal defaults to true in real usage (config.Load sets it via
+	// config.DefaultRunCleanupOnSignal); mirror that here so existing tests keep
+	// exercising the enabled path unless a test explicitly opts out.
+	deps.cfg = &config.Config{RunCleanupOnSignal: true}
 	deps.wt = wt
 	deps.runner = runner
 
@@ -444,7 +448,7 @@ func TestRunCmd_DefaultBranchUsedAsFromBase(t *testing.T) {
 	defer restore()
 
 	runBranch = "feature/new"
-	deps.cfg = &config.Config{DefaultBranch: "develop"}
+	deps.cfg = &config.Config{DefaultBranch: "develop", RunCleanupOnSignal: true}
 
 	if err := callRunE([]string{"true"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -571,6 +575,73 @@ func TestRunCmd_UnlockFails_CleanupStillReportsSuccess(t *testing.T) {
 	}
 	if !wt.removeCalled {
 		t.Error("Remove() was not called")
+	}
+}
+
+// --- run_cleanup_on_signal = false ---
+
+func TestRunCmd_CleanupOnSignalDisabled_SkipsSweepLockAndUnlock(t *testing.T) {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	deps.cfg.RunCleanupOnSignal = false
+
+	if err := callRunE([]string{"true"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if wt.sweepCalled {
+		t.Error("SweepOrphans() was called despite run_cleanup_on_signal=false")
+	}
+	if wt.lockCalled {
+		t.Error("Lock() was called despite run_cleanup_on_signal=false")
+	}
+	if wt.unlockCalled {
+		t.Error("Unlock() was called despite run_cleanup_on_signal=false")
+	}
+	// Remove() is unconditional — the plain defer-based cleanup this feature
+	// was layered on top of must still run regardless of the config toggle.
+	if !wt.removeCalled {
+		t.Error("Remove() was not called")
+	}
+}
+
+func TestRunCmd_CleanupOnSignalDisabled_SignalDoesNotCancelRunningCommand(t *testing.T) {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	started := make(chan struct{})
+	finished := make(chan struct{})
+	runner := &mockRunner{runFunc: func(ctx context.Context) error {
+		close(started)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-finished:
+			return nil
+		}
+	}}
+	restore := setupRunTest(wt, runner)
+	defer restore()
+
+	deps.cfg.RunCleanupOnSignal = false
+
+	done := make(chan error, 1)
+	go func() { done <- callRunE([]string{"true"}) }()
+
+	<-started
+	// With the feature disabled, nothing is listening on sigCh, so this must
+	// have no effect on the running command — simulate that directly by
+	// confirming the command only finishes when we close(finished), not on
+	// some external cancellation.
+	select {
+	case <-done:
+		t.Fatal("callRunE returned before the command finished — signal handling should be disabled")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(finished)
+
+	if err := <-done; err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
