@@ -4,11 +4,14 @@ package e2e
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // gitEnvVars are cleared before running fixture git commands so tests behave
@@ -129,7 +132,13 @@ func fakeShellPath() string {
 // readConfigFile returns the content of .workstreams.yaml at dir.
 func readConfigFile(t *testing.T, dir string) string {
 	t.Helper()
-	path := filepath.Join(dir, ".workstreams.yaml")
+	return readFile(t, filepath.Join(dir, ".workstreams.yaml"))
+}
+
+// readFile returns the content of the file at path, built from a test
+// fixture directory rather than external input.
+func readFile(t *testing.T, path string) string {
+	t.Helper()
 	//nolint:gosec // path is built from a test fixture directory, not external input.
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -137,3 +146,73 @@ func readConfigFile(t *testing.T, dir string) string {
 	}
 	return string(content)
 }
+
+// waitForWorktreeCount polls `git worktree list` in dir until it reports
+// exactly want entries, or fails the test after timeout. Used to synchronize
+// with a background `workstreams run` invocation (started via harness.start)
+// without racing its output.
+func waitForWorktreeCount(t *testing.T, dir string, want int, timeout time.Duration) []string {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	var paths []string
+	for {
+		paths = worktreePaths(t, dir)
+		if len(paths) == want {
+			return paths
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %d worktrees, got %d: %v", want, len(paths), paths)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// gitCommonDir returns the repo at dir's shared .git directory, resolving
+// linked-worktree ".git" files the same way internal/worktree.Manager does
+// for locating run-lock storage.
+func gitCommonDir(t *testing.T, dir string) string {
+	t.Helper()
+	return strings.TrimSpace(runGit(t, dir, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+}
+
+// runLockFileName derives the same filesystem-safe file name that
+// internal/worktree.Manager.Lock uses for a run lock keyed by key: the first
+// 8 bytes of its SHA-256 hash, hex-encoded, with a ".json" suffix.
+func runLockFileName(key string) string {
+	sum := sha256.Sum256([]byte(key))
+	return fmt.Sprintf("%x.json", sum[:8])
+}
+
+// writeOrphanRunLock seeds a run-lock file for key at path, owned by a PID
+// that is guaranteed not to be alive, so a subsequent `workstreams run`
+// invocation's orphan sweep will find and clean it up. Returns the lock
+// file's path.
+func writeOrphanRunLock(t *testing.T, dir, key, path string) string {
+	t.Helper()
+	locksDir := filepath.Join(gitCommonDir(t, dir), "workstreams", "run-locks")
+	if err := os.MkdirAll(locksDir, 0o750); err != nil {
+		t.Fatalf("mkdir run-locks dir: %v", err)
+	}
+
+	lockPath := filepath.Join(locksDir, runLockFileName(key))
+	lockJSON := fmt.Sprintf(`{"key":%q,"path":%q,"pid":%d,"createdAt":"2020-01-01T00:00:00Z"}`, key, path, deadPID(t))
+	if err := os.WriteFile(lockPath, []byte(lockJSON), 0o600); err != nil {
+		t.Fatalf("write run lock: %v", err)
+	}
+	return lockPath
+}
+
+// deadPID returns the PID of a process that has already exited, for tests
+// that need a PID guaranteed not to be alive (orphan-detection fixtures).
+func deadPID(t *testing.T) int {
+	t.Helper()
+	cmd := exec.Command("true")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("run true: %v", err)
+	}
+	return cmd.Process.Pid
+}
+
+// signalTerminatedExitCode is the exec.ExitError.ExitCode() value Go reports
+// for a process that was terminated by a signal rather than exiting normally.
+const signalTerminatedExitCode = -1

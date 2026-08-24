@@ -96,3 +96,21 @@ func TestRun_EnvVars_Branch(t *testing.T) {
 	requireExitCode(t, r, 0)
 	requireContains(t, r.stdout, "BRANCH=feature/env")
 }
+
+// TestRun_ShorthandBranchAndFrom verifies -b and -f are equivalent to
+// --branch and --from.
+func TestRun_ShorthandBranchAndFrom(t *testing.T) {
+	dir := initRepo(t)
+	runGit(t, dir, "checkout", "-b", "alt")
+	commitFile(t, dir, "alt-only.txt", "alt content\n", "add alt-only file")
+	runGit(t, dir, "checkout", "main")
+
+	h := newHarness(t, dir)
+	r := h.run("run", "-b", "feature/short", "-f", "alt", "--", "cat", "alt-only.txt")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stdout, "alt content")
+
+	if !branchExists(t, dir, "feature/short") {
+		t.Fatalf("expected branch feature/short to be created via -b")
+	}
+}

@@ -50,35 +50,100 @@ func (h *harness) withEnv(key, value string) *harness {
 	return &harness{t: h.t, dir: h.dir, home: h.home, env: env}
 }
 
-// run invokes the workstreams binary with args and returns its result. It
-// never fails the test on a non-zero exit code — callers assert that
-// explicitly, since a non-zero exit is often the expected outcome.
+// buildEnv returns the explicit subprocess environment for this harness.
+func (h *harness) buildEnv() []string {
+	env := []string{"PATH=" + os.Getenv("PATH"), "HOME=" + h.home}
+	for k, v := range h.env {
+		env = append(env, k+"="+v)
+	}
+	return env
+}
+
+// run invokes the workstreams binary with args and blocks until it exits,
+// returning its result. It never fails the test on a non-zero exit code —
+// callers assert that explicitly, since a non-zero exit is often the
+// expected outcome. Use start instead when the test needs to interact with
+// the process (e.g. send it a signal) before it exits.
 func (h *harness) run(args ...string) result {
 	h.t.Helper()
 
 	//nolint:gosec // binPath is our own freshly-built test binary, not user input.
 	cmd := exec.Command(binPath, args...)
 	cmd.Dir = h.dir
-
-	env := []string{"PATH=" + os.Getenv("PATH"), "HOME=" + h.home}
-	for k, v := range h.env {
-		env = append(env, k+"="+v)
-	}
-	cmd.Env = env
+	cmd.Env = h.buildEnv()
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	runErr := cmd.Run()
-	exitCode := 0
-	if runErr != nil {
-		var exitErr *exec.ExitError
-		if !errors.As(runErr, &exitErr) {
-			h.t.Fatalf("run %v: %v", args, runErr)
-		}
-		exitCode = exitErr.ExitCode()
-	}
+	exitCode := exitCodeFromErr(h.t, runErr)
 
 	return result{stdout: stdout.String(), stderr: stderr.String(), exitCode: exitCode}
+}
+
+// asyncRun is a workstreams invocation started in the background via
+// harness.start, so the test can interact with it (typically: send a
+// signal) before collecting its result with wait.
+type asyncRun struct {
+	t      *testing.T
+	cmd    *exec.Cmd
+	stdout *bytes.Buffer
+	stderr *bytes.Buffer
+}
+
+// start begins running the workstreams binary with args in the background
+// and returns immediately, without waiting for it to exit.
+func (h *harness) start(args ...string) *asyncRun {
+	h.t.Helper()
+
+	//nolint:gosec // binPath is our own freshly-built test binary, not user input.
+	cmd := exec.Command(binPath, args...)
+	cmd.Dir = h.dir
+	cmd.Env = h.buildEnv()
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Start(); err != nil {
+		h.t.Fatalf("start %v: %v", args, err)
+	}
+
+	return &asyncRun{t: h.t, cmd: cmd, stdout: &stdout, stderr: &stderr}
+}
+
+// signal sends sig to the running process.
+func (r *asyncRun) signal(sig os.Signal) {
+	r.t.Helper()
+	if err := r.cmd.Process.Signal(sig); err != nil {
+		r.t.Fatalf("signal %v: %v", sig, err)
+	}
+}
+
+// wait blocks until the process exits and returns its result. Only safe to
+// call once, and only after the process has actually started (i.e. after
+// start returned) — stdout/stderr are read here, once exec.Cmd guarantees
+// the output-copying goroutines it started internally have finished.
+func (r *asyncRun) wait() result {
+	r.t.Helper()
+	runErr := r.cmd.Wait()
+	exitCode := exitCodeFromErr(r.t, runErr)
+	return result{stdout: r.stdout.String(), stderr: r.stderr.String(), exitCode: exitCode}
+}
+
+// exitCodeFromErr extracts a process exit code from the error returned by
+// exec.Cmd's Run/Wait, failing the test if err is a non-exit error (e.g. the
+// binary itself could not be started). A process terminated by a signal
+// (rather than exiting normally) reports -1, per exec.ExitError.ExitCode.
+func exitCodeFromErr(t *testing.T, err error) int {
+	t.Helper()
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("run: %v", err)
+	}
+	return exitErr.ExitCode()
 }
