@@ -1,0 +1,7 @@
+name: Build
+description: Compile the workstreams binary
+runs:
+  using: composite
+  steps:
+    - run: make build
+      shell: bash

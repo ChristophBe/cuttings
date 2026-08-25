@@ -1,8 +1,8 @@
-name: CI
+name: Feature Branch
 
 on:
   push:
-    branches: [main]
+    branches-ignore: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,4 +12,4 @@ jobs:
   checks:
     uses: ./.github/workflows/checks.yml
     with:
-      full: true
+      full: false

@@ -1,0 +1,9 @@
+name: Setup Go
+description: Set up the Go toolchain with module/build caching
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+        cache: true

@@ -1,0 +1,13 @@
+name: Docs Check
+description: Regenerate the command reference and fail if docs/features.md is out of date
+runs:
+  using: composite
+  steps:
+    - run: make generate-docs
+      shell: bash
+    - run: |
+        git diff --exit-code -- docs/features.md || {
+          echo "::error::docs/features.md is out of date — run 'make generate-docs' and commit the result."
+          exit 1
+        }
+      shell: bash
