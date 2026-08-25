@@ -4,18 +4,19 @@ INSTALL_DIR := $(shell go env GOPATH)/bin
 
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-LDFLAGS    := -X 'github.com/ChristophBe/workstreams/cmd.Version=$(VERSION)' \
+LDFLAGS    := -s -w \
+              -X 'github.com/ChristophBe/workstreams/cmd.Version=$(VERSION)' \
               -X 'github.com/ChristophBe/workstreams/cmd.BuildTime=$(BUILD_TIME)'
 
 .PHONY: build install test e2e lint clean tag generate-docs help
 
 ## build: compile the binary to ./bin/workstreams
 build:
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) .
+	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) .
 
 ## install: install the binary to $GOPATH/bin
 install:
-	go install -ldflags "$(LDFLAGS)" .
+	go install -trimpath -ldflags "$(LDFLAGS)" .
 
 ## test: run all unit tests
 test:

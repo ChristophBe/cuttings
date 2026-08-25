@@ -2,7 +2,7 @@
 Copyright © 2026 Christoph Becker
 */
 
-// Package config provides Viper-based configuration loading for the workstreams CLI.
+// Package config provides configuration loading for the workstreams CLI.
 // Configuration is read from a .workstreams.yaml file at the git repository root
 // and can be overridden by environment variables with the WORKSTREAMS_ prefix.
 //
@@ -14,11 +14,12 @@ Copyright © 2026 Christoph Becker
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"strconv"
 
-	"github.com/spf13/viper"
+	"go.yaml.in/yaml/v3"
 )
 
 // Config key constants used in .workstreams.yaml and for env var mapping.
@@ -66,30 +67,60 @@ func (c *Config) FilePath() string {
 	return filepath.Join(c.repoRoot, ConfigFileName)
 }
 
+// fileConfig mirrors the recognized .workstreams.yaml keys. Pointer fields let
+// Load distinguish "key absent" (fall back to default) from "key present".
+type fileConfig struct {
+	WorktreesDir       *string `yaml:"worktrees_dir"`
+	DefaultBranch      *string `yaml:"default_branch"`
+	RunCleanupOnSignal *bool   `yaml:"run_cleanup_on_signal"`
+}
+
 // Load reads .workstreams.yaml at repoRoot (if present) and returns a Config.
 // A missing config file is not an error — defaults are used instead.
 // Environment variables with the WORKSTREAMS_ prefix override file values.
 func Load(repoRoot string) (*Config, error) {
-	v := viper.New()
-	v.SetDefault(KeyWorktreesDir, DefaultWorktreesDir)
-	v.SetDefault(KeyDefaultBranch, DefaultDefaultBranch)
-	v.SetDefault(KeyRunCleanupOnSignal, DefaultRunCleanupOnSignal)
-
-	v.SetEnvPrefix("WORKSTREAMS")
-	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	v.AutomaticEnv()
-
-	v.SetConfigFile(filepath.Join(repoRoot, ConfigFileName))
-	v.SetConfigType("yaml")
-
-	if err := v.ReadInConfig(); err != nil && !os.IsNotExist(err) {
-		return nil, err
+	cfg := &Config{
+		WorktreesDir:       DefaultWorktreesDir,
+		DefaultBranch:      DefaultDefaultBranch,
+		RunCleanupOnSignal: DefaultRunCleanupOnSignal,
+		repoRoot:           repoRoot,
 	}
 
-	return &Config{
-		WorktreesDir:       v.GetString(KeyWorktreesDir),
-		DefaultBranch:      v.GetString(KeyDefaultBranch),
-		RunCleanupOnSignal: v.GetBool(KeyRunCleanupOnSignal),
-		repoRoot:           repoRoot,
-	}, nil
+	path := filepath.Join(repoRoot, ConfigFileName)
+	data, err := os.ReadFile(path) //nolint:gosec // path is derived from repoRoot, not raw user input
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else {
+		var fc fileConfig
+		if err := yaml.Unmarshal(data, &fc); err != nil {
+			return nil, fmt.Errorf("parsing %s: %w", path, err)
+		}
+		if fc.WorktreesDir != nil {
+			cfg.WorktreesDir = *fc.WorktreesDir
+		}
+		if fc.DefaultBranch != nil {
+			cfg.DefaultBranch = *fc.DefaultBranch
+		}
+		if fc.RunCleanupOnSignal != nil {
+			cfg.RunCleanupOnSignal = *fc.RunCleanupOnSignal
+		}
+	}
+
+	if s, ok := os.LookupEnv("WORKSTREAMS_WORKTREES_DIR"); ok {
+		cfg.WorktreesDir = s
+	}
+	if s, ok := os.LookupEnv("WORKSTREAMS_DEFAULT_BRANCH"); ok {
+		cfg.DefaultBranch = s
+	}
+	if s, ok := os.LookupEnv("WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL"); ok {
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			return nil, fmt.Errorf("invalid WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL value %q: %w", s, err)
+		}
+		cfg.RunCleanupOnSignal = b
+	}
+
+	return cfg, nil
 }
