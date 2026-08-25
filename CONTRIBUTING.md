@@ -120,6 +120,23 @@ Types: `feat`, `fix`, `test`, `docs`, `chore`, `refactor`.
 - Keep the summary line under 72 characters.
 - Use the body to explain *why*, not *what* (the diff shows what).
 
+### Release process
+
+Releases are tagged automatically. On every push to `main` where the `CI`
+workflow succeeds, the `Semantic Tag` workflow
+(`.github/workflows/semantic-tag.yml`) analyzes commits since the last tag
+using [semantic-release](https://github.com/semantic-release/semantic-release)
+(Conventional Commits → semver: `feat` → minor, `fix`/`perf` → patch,
+`BREAKING CHANGE:` → major). If a release is warranted, it runs
+`make tag VERSION=vX.Y.Z` and then explicitly dispatches
+`.github/workflows/release.yml`, which publishes the release via GoReleaser.
+Dispatched runs skip `release.yml`'s own test/lint/e2e jobs, since `CI`
+already validated the exact commit being tagged — they only re-run as a
+safety net when a tag is pushed manually (not via the automated flow), so
+linter and tests run once per commit either way. Commits that are entirely
+`docs`/`chore`/`test`/`refactor` don't trigger a version bump, so nothing
+gets tagged or released.
+
 ---
 
 ## Pre-commit Hooks
