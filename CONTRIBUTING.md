@@ -122,10 +122,10 @@ Types: `feat`, `fix`, `test`, `docs`, `chore`, `refactor`.
 
 ### Release process
 
-Releases are tagged automatically. On every push to `main` where the `CI`
-workflow succeeds, the `Semantic Tag` workflow
-(`.github/workflows/semantic-tag.yml`) analyzes commits since the last tag
-using [semantic-release](https://github.com/semantic-release/semantic-release)
+Releases are tagged automatically. `.github/workflows/ci.yml`'s `tag` job runs
+after its `checks` job succeeds on a push to `main`, and analyzes commits
+since the last tag using
+[semantic-release](https://github.com/semantic-release/semantic-release)
 (Conventional Commits → semver: `feat` → minor, `fix`/`perf` → patch,
 `BREAKING CHANGE:` → major). If a release is warranted, it runs
 `make tag VERSION=vX.Y.Z` and then explicitly dispatches

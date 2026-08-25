@@ -12,10 +12,10 @@ permissions:
 jobs:
   test:
     name: Test
-    # Skip when dispatched by the Semantic Tag workflow — it only tags a
-    # commit after CI already ran test/lint/e2e on it. A raw tag push
-    # (e.g. a manual `make tag`) isn't CI-gated, so it still gets checked
-    # here as a safety net.
+    # Skip when dispatched by ci.yml's tag job — it only tags a commit after
+    # CI already ran test/lint/e2e on it. A raw tag push (e.g. a manual
+    # `make tag`) isn't CI-gated, so it still gets checked here as a safety
+    # net.
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
