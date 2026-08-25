@@ -114,7 +114,9 @@ func (m *Manager) List() ([]Worktree, error) {
 
 // Remove removes the git worktree for the given branch. The branch itself is
 // preserved. Returns ErrWorktreeNotFound if no matching workstream exists.
-func (m *Manager) Remove(branch string) error {
+// By default git refuses to remove a worktree with uncommitted or untracked
+// changes; pass force to bypass that check.
+func (m *Manager) Remove(branch string, force bool) error {
 	path := m.Path(branch)
 
 	// Verify the worktree actually exists before attempting removal.
@@ -122,8 +124,14 @@ func (m *Manager) Remove(branch string) error {
 		return ErrWorktreeNotFound
 	}
 
+	args := []string{"worktree", "remove"}
+	if force {
+		args = append(args, "--force")
+	}
+	args = append(args, path)
+
 	//nolint:gosec // path is derived from an internal worktree directory, not raw user input.
-	cmd := exec.Command("git", "worktree", "remove", path)
+	cmd := exec.Command("git", args...)
 	cmd.Dir = m.repoRoot
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -341,7 +349,7 @@ func (m *Manager) SweepOrphans() ([]string, error) {
 			continue
 		}
 
-		if removeErr := m.Remove(lock.Key); removeErr != nil && !errors.Is(removeErr, ErrWorktreeNotFound) {
+		if removeErr := m.Remove(lock.Key, false); removeErr != nil && !errors.Is(removeErr, ErrWorktreeNotFound) {
 			errs = append(errs, fmt.Errorf("remove orphaned workstream %q: %w", lock.Key, removeErr))
 			continue
 		}
