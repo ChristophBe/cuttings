@@ -32,3 +32,8 @@ repos:
         entry: golangci-lint run
         pass_filenames: false
         types: [go]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint-system

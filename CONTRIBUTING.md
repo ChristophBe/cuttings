@@ -10,6 +10,7 @@ Thank you for contributing to `workstreams`. This document covers the developmen
 - Go 1.22 or later — [golang.org/doc/install](https://golang.org/doc/install)
 - [pre-commit](https://pre-commit.com/index.html#installation) — see installation instructions for your platform
 - [golangci-lint](https://golangci-lint.run/welcome/install/) — see installation instructions for your platform
+- [actionlint](https://github.com/rhysd/actionlint#installation) — see installation instructions for your platform
 
 **Setup:**
 
@@ -132,6 +133,7 @@ The following hooks run on every commit:
 | `go build`     | The project compiles                |
 | `go test`      | All tests pass                      |
 | `golangci-lint`| No lint issues                      |
+| `actionlint`   | GitHub Actions workflow files (`.github/workflows/*.yml`) are valid |
 
 Run all hooks manually:
 
@@ -139,7 +141,7 @@ Run all hooks manually:
 pre-commit run --all-files
 ```
 
-`make e2e` intentionally does **not** run on every commit — it builds a fresh binary and spins up real git repositories per test, which is too slow for a commit hook. It runs in CI on every push and pull request instead (see the `E2E` job in `.github/workflows/ci.yml`).
+`make e2e` intentionally does **not** run on every commit — it builds a fresh binary and spins up real git repositories per test, which is too slow for a commit hook. Instead it runs on pull requests and on pushes to `main` as part of the full check suite (see the reusable `.github/workflows/checks.yml`, composed from the actions in `.github/actions/`). Plain feature-branch pushes run a lighter build+test+lint subset — see `.github/workflows/feature.yml` vs. `.github/workflows/pr.yml`/`.github/workflows/ci.yml`.
 
 ---
 

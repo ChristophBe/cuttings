@@ -1,0 +1,7 @@
+name: E2E Tests
+description: Run black-box end-to-end CLI tests
+runs:
+  using: composite
+  steps:
+    - run: make e2e
+      shell: bash
