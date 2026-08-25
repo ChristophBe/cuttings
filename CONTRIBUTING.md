@@ -122,20 +122,26 @@ Types: `feat`, `fix`, `test`, `docs`, `chore`, `refactor`.
 
 ### Release process
 
-Releases are tagged automatically. `.github/workflows/ci.yml`'s `tag` job runs
-after its `checks` job succeeds on a push to `main`, and analyzes commits
-since the last tag using
-[semantic-release](https://github.com/semantic-release/semantic-release)
-(Conventional Commits → semver: `feat` → minor, `fix`/`perf` → patch,
-`BREAKING CHANGE:` → major). If a release is warranted, it runs
-`make tag VERSION=vX.Y.Z` and then explicitly dispatches
-`.github/workflows/release.yml`, which publishes the release via GoReleaser.
-Dispatched runs skip `release.yml`'s own test/lint/e2e jobs, since `CI`
-already validated the exact commit being tagged — they only re-run as a
-safety net when a tag is pushed manually (not via the automated flow), so
-linter and tests run once per commit either way. Commits that are entirely
-`docs`/`chore`/`test`/`refactor` don't trigger a version bump, so nothing
-gets tagged or released.
+Tagging and publishing both live in a single workflow,
+`.github/workflows/release.yml`, which triggers on every push to `main`, on
+any `v*` tag push, and via manual dispatch. Its jobs run in sequence:
+
+1. **`checks`** — build, unit tests, lint, e2e, and the docs-drift check
+   (`checks.yml`, shared with `pr.yml`/`feature.yml`).
+2. **`tag`** — only on a push to `main`, after `checks` succeeds. Analyzes
+   commits since the last tag using
+   [semantic-release](https://github.com/semantic-release/semantic-release)
+   (Conventional Commits → semver: `feat` → minor, `fix`/`perf` → patch,
+   `BREAKING CHANGE:` → major). If a release is warranted, it runs
+   `make tag VERSION=vX.Y.Z`, pushing the new tag.
+3. **`goreleaser`** — publishes the release via GoReleaser. It runs either
+   right after `tag` creates a new tag (same workflow run — no cross-workflow
+   dispatch needed) or when a tag is pushed directly (e.g. a manual
+   `make tag`), in which case `checks` above serves as the safety net since a
+   direct tag push isn't otherwise CI-gated.
+
+Commits that are entirely `docs`/`chore`/`test`/`refactor` don't trigger a
+version bump, so nothing gets tagged or released.
 
 ---
 
@@ -158,7 +164,7 @@ Run all hooks manually:
 pre-commit run --all-files
 ```
 
-`make e2e` intentionally does **not** run on every commit — it builds a fresh binary and spins up real git repositories per test, which is too slow for a commit hook. Instead it runs on pull requests and on pushes to `main` as part of the full check suite (see the reusable `.github/workflows/checks.yml`, composed from the actions in `.github/actions/`). Plain feature-branch pushes run a lighter build+test+lint subset — see `.github/workflows/feature.yml` vs. `.github/workflows/pr.yml`/`.github/workflows/ci.yml`.
+`make e2e` intentionally does **not** run on every commit — it builds a fresh binary and spins up real git repositories per test, which is too slow for a commit hook. Instead it runs on pull requests and on pushes to `main` as part of the full check suite (see the reusable `.github/workflows/checks.yml`, composed from the actions in `.github/actions/`). Plain feature-branch pushes run a lighter build+test+lint subset — see `.github/workflows/feature.yml` vs. `.github/workflows/pr.yml`/`.github/workflows/release.yml`.
 
 ---
 

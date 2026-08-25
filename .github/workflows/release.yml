@@ -2,65 +2,73 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
 
 jobs:
-  test:
-    name: Test
-    # Skip when dispatched by ci.yml's tag job — it only tags a commit after
-    # CI already ran test/lint/e2e on it. A raw tag push (e.g. a manual
-    # `make tag`) isn't CI-gated, so it still gets checked here as a safety
-    # net.
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-go
-      - uses: ./.github/actions/test
+  checks:
+    uses: ./.github/workflows/checks.yml
+    with:
+      full: true
 
-  lint:
-    name: Lint
-    if: github.event_name == 'push'
+  tag:
+    name: Tag Release
+    needs: checks
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-go
-      - uses: ./.github/actions/lint
-
-  e2e:
-    name: E2E
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-go
-      - uses: ./.github/actions/e2e
-
-  goreleaser:
-    name: Release
-    runs-on: ubuntu-latest
-    needs: [test, lint, e2e]
-    # test/lint/e2e are skipped (not failed) on workflow_dispatch, so treat
-    # 'skipped' the same as 'success' here — only a real failure blocks release.
-    if: |
-      always() &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
-      (needs.e2e.result == 'success' || needs.e2e.result == 'skipped')
+    outputs:
+      tag: ${{ steps.semantic.outputs.new_release_git_tag }}
+      published: ${{ steps.semantic.outputs.new_release_published }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v7
+      - name: Determine next version
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v5
         with:
-          go-version-file: go.mod
-          cache: true
+          dry_run: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag release
+        if: steps.semantic.outputs.new_release_published == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          make tag VERSION=${{ steps.semantic.outputs.new_release_git_tag }}
+
+  goreleaser:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [checks, tag]
+    # Runs right after a tag is created on main (same workflow run, no
+    # cross-workflow dispatch needed), or when a tag is pushed directly
+    # (e.g. a manual `make tag`) — `checks` above is the safety net for that
+    # case, since a direct tag push isn't otherwise CI-gated.
+    if: |
+      always() &&
+      (needs.checks.result == 'success' || needs.checks.result == 'skipped') &&
+      (
+        github.ref_type == 'tag' ||
+        (needs.tag.result == 'success' && needs.tag.outputs.published == 'true')
+      )
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.tag.outputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-go
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
