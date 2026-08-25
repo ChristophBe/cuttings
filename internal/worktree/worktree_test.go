@@ -198,7 +198,7 @@ func TestRemove(t *testing.T) {
 		t.Fatalf("Add() setup: %v", err)
 	}
 
-	if err := m.Remove("to-remove"); err != nil {
+	if err := m.Remove("to-remove", false); err != nil {
 		t.Fatalf("Remove() unexpected error: %v", err)
 	}
 
@@ -211,9 +211,36 @@ func TestRemove_NotFound(t *testing.T) {
 	dir := initRepo(t)
 	m := worktree.NewManager(dir, ".worktrees")
 
-	err := m.Remove("nonexistent")
+	err := m.Remove("nonexistent", false)
 	if err == nil {
 		t.Fatal("Remove() expected error for nonexistent branch, got nil")
+	}
+}
+
+func TestRemove_DirtyWorktree_RequiresForce(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	path, err := m.Add("to-remove", true, "")
+	if err != nil {
+		t.Fatalf("Add() setup: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(path, "README.md"), []byte("dirty\n"), 0o600); err != nil {
+		t.Fatalf("write dirty file: %v", err)
+	}
+
+	if err := m.Remove("to-remove", false); err == nil {
+		t.Fatal("Remove(force=false) expected error for dirty worktree, got nil")
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("expected worktree dir to still exist after failed remove: %v", err)
+	}
+
+	if err := m.Remove("to-remove", true); err != nil {
+		t.Fatalf("Remove(force=true) unexpected error: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("worktree directory still exists after Remove(force=true)")
 	}
 }
 

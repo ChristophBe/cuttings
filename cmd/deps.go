@@ -20,7 +20,7 @@ type WorktreeManager interface {
 	CurrentBranch() (string, error)
 	ListBranches() ([]string, error)
 	List() ([]worktree.Worktree, error)
-	Remove(branch string) error
+	Remove(branch string, force bool) error
 	Exists(branch string) bool
 	BranchExists(branch string) bool
 	Path(branch string) string

@@ -73,7 +73,7 @@ func (m *mockWorktreeManager) AddDetached(name, base string) (string, error) {
 func (m *mockWorktreeManager) CurrentBranch() (string, error) {
 	return m.currentBranch, m.currentBranchErr
 }
-func (m *mockWorktreeManager) Remove(key string) error {
+func (m *mockWorktreeManager) Remove(key string, _ bool) error {
 	m.callOrder = append(m.callOrder, "Remove")
 	m.removeCalled = true
 	m.removeKey = key

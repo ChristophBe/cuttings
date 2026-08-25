@@ -171,7 +171,7 @@ The exit code of the command is propagated to the calling shell.`,
 		// This defer runs FIRST (registered second) — always clean up the worktree.
 		defer func() {
 			_, _ = fmt.Fprintf(os.Stdout, "Cleaning up workstream...\n")
-			if removeErr := deps.wt.Remove(worktreeKey); removeErr != nil {
+			if removeErr := deps.wt.Remove(worktreeKey, false); removeErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: cleanup failed: %v\n", removeErr)
 			}
 			if cleanupOnSignal {

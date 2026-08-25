@@ -45,6 +45,45 @@ func TestRemove_UncommittedChanges(t *testing.T) {
 	}
 }
 
+func TestRemove_Force(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+	newWorkstream(t, h, "feature/foo")
+	wsPath := filepath.Join(dir, ".worktrees", "feature", "foo")
+
+	if err := os.WriteFile(filepath.Join(wsPath, "README.md"), []byte("dirty\n"), 0o600); err != nil {
+		t.Fatalf("write dirty file: %v", err)
+	}
+
+	r := h.run("remove", "--force", "feature/foo")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stdout, "removed")
+
+	if _, err := os.Stat(wsPath); !os.IsNotExist(err) {
+		t.Fatalf("expected worktree dir removed, stat err = %v", err)
+	}
+}
+
+// TestRemove_ShorthandForce verifies -f is equivalent to --force.
+func TestRemove_ShorthandForce(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+	newWorkstream(t, h, "feature/foo")
+	wsPath := filepath.Join(dir, ".worktrees", "feature", "foo")
+
+	if err := os.WriteFile(filepath.Join(wsPath, "README.md"), []byte("dirty\n"), 0o600); err != nil {
+		t.Fatalf("write dirty file: %v", err)
+	}
+
+	r := h.run("remove", "-f", "feature/foo")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stdout, "removed")
+
+	if _, err := os.Stat(wsPath); !os.IsNotExist(err) {
+		t.Fatalf("expected worktree dir removed, stat err = %v", err)
+	}
+}
+
 func TestRemove_NotFound(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)

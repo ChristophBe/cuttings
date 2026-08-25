@@ -118,7 +118,8 @@ Remove the git worktree for the given branch. The branch itself is preserved
 so you can re-create the workstream later with "workstreams new <branch>".
 
 The command will fail if the worktree has uncommitted changes. Use
-"git -C .worktrees/<branch> checkout -- ." to discard them first.
+"git -C .worktrees/<branch> checkout -- ." to discard them first, or pass
+--force to discard them as part of removal.
 
 ```
 workstreams remove <branch> [flags]
@@ -133,7 +134,8 @@ workstreams remove <branch> [flags]
 #### Options
 
 ```
-  -h, --help   help for remove
+  -f, --force   remove even if the worktree has uncommitted or untracked changes
+  -h, --help    help for remove
 ```
 
 ### workstreams run
