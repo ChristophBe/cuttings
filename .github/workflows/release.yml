@@ -34,7 +34,7 @@ jobs:
 
       - name: Determine next version
         id: semantic
-        uses: cycjimmy/semantic-release-action@v5
+        uses: cycjimmy/semantic-release-action@v6
         with:
           dry_run: true
         env:
