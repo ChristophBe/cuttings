@@ -312,6 +312,22 @@ func TestRunCmd_ExistingBranch_PromptRemove_Yes(t *testing.T) {
 	}
 }
 
+func TestRunCmd_ExistingBranch_PromptRemove_Yes_RemoveFails(t *testing.T) {
+	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws", removeErr: errors.New("remove failed")}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	runBranch = "feature/exists"
+	promptReader = strings.NewReader("y\n")
+
+	if err := callRunE([]string{"echo", "hello"}); err != nil {
+		t.Fatalf("a Remove() failure after confirming removal should be a non-fatal warning, got error: %v", err)
+	}
+	if !wt.removeCalled {
+		t.Error("expected Remove() to still be attempted")
+	}
+}
+
 func TestRunCmd_ExistingBranch_PromptRemove_No(t *testing.T) {
 	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
 	restore := setupRunTest(wt, &mockRunner{})
