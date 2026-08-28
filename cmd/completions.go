@@ -30,7 +30,7 @@ func completeWorkstreams(_ *cobra.Command, _ []string, _ string) ([]string, cobr
 }
 
 // completeBranches returns all local git branch names. Used by commands that
-// accept any branch name (new, run --branch, --from flags).
+// accept any branch name (new, run --branch, --source flags).
 func completeBranches(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	if deps.wt == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
