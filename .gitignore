@@ -32,6 +32,9 @@ go.work.sum
 
 # Build output
 bin/
+site/public/
+site/.hugo_build.lock
+site/resources/
 
 # Editor/IDE
 # .idea/
