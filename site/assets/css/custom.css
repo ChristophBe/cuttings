@@ -28,3 +28,24 @@
 .dark .hero-glow {
   background: radial-gradient(closest-side, hsl(var(--primary-hue) var(--primary-saturation) var(--primary-lightness) / 20%), transparent);
 }
+
+/* Traffic-light dots on the filename bar of CLI demo code blocks
+   (` ```bash {filename="Terminal 1"} `), so they read as terminal windows.
+   Selector matches highlight.css's `.hextra-code-block .hextra-code-filename`
+   specificity so this padding override actually takes effect. */
+.hextra-code-block .hextra-code-filename {
+  padding-left: 4rem;
+}
+
+.hextra-code-block .hextra-code-filename::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 1rem;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+  background: #ff5f56;
+  box-shadow: 1.1rem 0 0 #ffbd2e, 2.2rem 0 0 #27c93f;
+  transform: translateY(-50%);
+}

@@ -24,9 +24,18 @@ toc: false
 {{< /hextra/hero-subtitle >}}
 </div>
 
-<div class="hx:mb-6 hx:flex hx:gap-4 hx:flex-wrap">
+<div class="hx:mb-10 hx:flex hx:gap-4 hx:flex-wrap">
 {{< hextra/hero-button text="Get Started" link="#install" >}}
 {{< hextra/hero-button text="View on GitHub" link="https://github.com/ChristophBe/workstreams" >}}
+</div>
+
+<div class="hx:max-w-lg">
+
+```bash {filename="Terminal"}
+workstreams new feature/my-feature
+# isolated worktree + shell, ready to go
+```
+
 </div>
 </div>
 
@@ -48,36 +57,18 @@ tool, human or AI, to reload context.
 in a single command that creates the isolated directory *and* drops you
 straight into a shell inside it.
 
-{{< hextra/feature-grid cols="4" >}}
+<div class="hx:mb-8"></div>
+
+{{< hextra/feature-grid cols="3" >}}
   {{< hextra/feature-card
     title="Instant isolation"
     subtitle="One command creates a worktree and opens a shell inside it — no manual git worktree juggling."
     icon="lightning-bolt"
   >}}
   {{< hextra/feature-card
-    title="Branch flexibility"
-    subtitle="Creates a new branch if it doesn't exist yet, or reuses an existing one — workstreams adapts to what's already there."
-    icon="switch-horizontal"
-  >}}
-  {{< hextra/feature-card
     title="Zero state"
     subtitle="All state lives in git itself (git worktree list). No daemon, no config database, nothing to get out of sync."
     icon="database"
-  >}}
-  {{< hextra/feature-card
-    title="Environment injection"
-    subtitle="WORKSTREAM_BRANCH and WORKSTREAM_PATH are set inside the shell, so prompts and tools always know their context."
-    icon="variable"
-  >}}
-  {{< hextra/feature-card
-    title="Co-located worktrees"
-    subtitle="Stored at `.worktrees/<branch>/` inside the repo — easy to find, and gitignored automatically."
-    icon="folder-tree"
-  >}}
-  {{< hextra/feature-card
-    title="Shell completion"
-    subtitle="Tab-complete branch names and active workstreams in Bash, Zsh, and Fish."
-    icon="terminal"
   >}}
   {{< hextra/feature-card
     title="One-off commands"
@@ -97,58 +88,25 @@ straight into a shell inside it.
 Tools like [Claude Code](https://claude.ai/claude-code) work best with a
 directory of their own. Open one `workstreams` session per feature and every
 agent gets a clean, conflict-free copy of the repo — no branch switching, no
-file locks, no lost context.
+file locks, no lost context. Two agents, two worktrees, running at once:
 
-{{< tabs >}}
-{{< tab name="Terminal 1" >}}
-```bash
+<div class="hx:mb-8"></div>
+
+<div class="hx:grid hx:md:grid-cols-2 hx:gap-4">
+
+```bash {filename="Terminal 1"}
 workstreams new feature/auth-refactor
 # Claude Code works here, on its own branch,
 # in its own directory, with its own shell.
 ```
-{{< /tab >}}
-{{< tab name="Terminal 2" >}}
-```bash
+
+```bash {filename="Terminal 2"}
 workstreams new feature/new-dashboard
 # A second agent (or a second you) works here —
 # completely isolated from the session above.
 ```
-{{< /tab >}}
-{{< /tabs >}}
 
-<hr class="hx:my-2 hx:border-gray-200 hx:dark:border-neutral-800" />
-
-<div class="hx:mt-16 hx:mb-8">
-{{< hextra/hero-section >}}
-  More ways to use it
-{{< /hextra/hero-section >}}
 </div>
-
-Parallel AI agents are the headline case, but the same isolation helps with
-everyday git workflows too:
-
-{{< hextra/feature-grid cols="2" >}}
-  {{< hextra/feature-card
-    title="Review a PR without losing your place"
-    subtitle="`workstreams new pr-1234` checks it out into its own directory, leaving your current feature's uncommitted work untouched. `workstreams remove pr-1234` cleans up when you're done."
-    icon="eye"
-  >}}
-  {{< hextra/feature-card
-    title="Drop everything for a hotfix"
-    subtitle="No stashing mid-feature: `workstreams new hotfix/prod-bug` gets you a clean shell on main while your in-progress branch stays exactly as you left it."
-    icon="fire"
-  >}}
-  {{< hextra/feature-card
-    title="Keep the test suite running while you code"
-    subtitle="`workstreams run -- make test` runs in its own worktree, so a long test run never blocks — or gets disrupted by — the code you're still editing."
-    icon="beaker"
-  >}}
-  {{< hextra/feature-card
-    title="Compare two branches side by side"
-    subtitle="Open a workstream for each branch and flip between two real terminals and editors instead of `git stash` / `git checkout` round-trips."
-    icon="scale"
-  >}}
-{{< /hextra/feature-grid >}}
 
 <hr class="hx:my-2 hx:border-gray-200 hx:dark:border-neutral-800" />
 
