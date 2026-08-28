@@ -134,39 +134,6 @@ workstreams new feature/new-dashboard
 # with no branch conflicts or file-lock issues
 ```
 
-### Parallelizing from inside a single agent session
-
-For cases where you'd rather not juggle terminals yourself,
-`workstreams skill` installs instructions that teach a coding agent to
-create workstreams non-interactively and work through them for
-parallel-style development:
-
-```bash
-workstreams skill                                    # install every supported target, locally
-workstreams skill --target claude                    # just the Claude Code skill
-workstreams skill --scope global --target claude     # available in every project, not just this repo
-```
-
-Supported targets — pass a comma-separated list via `--target`, or omit it
-for `all`:
-
-| Target      | What it installs                                                   |
-|-------------|----------------------------------------------------------------------|
-| `claude`    | A Claude Code skill (`.claude/skills/workstreams-parallel/`) that also dispatches background subagents per workstream, all from one session |
-| `agents-md` | A section in `AGENTS.md`, read by Codex CLI and other agentic tools |
-| `cursor`    | A Cursor project rule (`.cursor/rules/`)                            |
-| `copilot`   | A section in `.github/copilot-instructions.md`                      |
-
-`--scope local` (the default) installs into the current repository;
-`--scope global` installs into your home directory so it applies to every
-project (Cursor and Copilot have no global location, so they're skipped for
-`--scope global`). See `workstreams skill --help` for details, or
-[docs/features.md](docs/features.md) for the full spec.
-
-Once installed, ask the agent to parallelize your work, e.g. "spin up
-workstreams for the auth refactor and the new dashboard and work on them in
-parallel."
-
 ## Shell Completion
 
 `workstreams` supports tab-completion for branch names and active workstreams. Quick setup:
