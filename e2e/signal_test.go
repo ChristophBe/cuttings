@@ -154,8 +154,12 @@ func TestRun_ExistingBranch_SignalLeavesInPlace(t *testing.T) {
 	newWorkstream(t, h, "feature/foo")
 	before := worktreePaths(t, dir)
 
-	marker := filepath.Join(dir, ".worktrees", "feature", "foo", "started")
-	proc := h.start("run", "--branch", "feature/foo", "--", "sh", "-c", "touch started; sleep 30")
+	// The marker lives outside the worktree (touching a file inside it would
+	// leave it dirty, which would itself block a later `git worktree remove`
+	// — that's the exact "uncommitted changes block removal" limitation
+	// documented in docs/features.md, not something this test wants to hit).
+	marker := filepath.Join(t.TempDir(), "started")
+	proc := h.start("run", "--branch", "feature/foo", "--", "sh", "-c", "touch "+marker+"; sleep 30")
 	waitForFile(t, marker, 5*time.Second)
 	proc.signal(syscall.SIGINT)
 	r := proc.wait()
@@ -166,5 +170,35 @@ func TestRun_ExistingBranch_SignalLeavesInPlace(t *testing.T) {
 	after := worktreePaths(t, dir)
 	if len(after) != len(before) {
 		t.Fatalf("expected the reused workstream to survive SIGINT: before=%v after=%v", before, after)
+	}
+}
+
+// TestRun_ExistingBranch_RemoveAfterFlag_SignalStillCleansUp verifies the
+// opposite of TestRun_ExistingBranch_SignalLeavesInPlace: with --remove-after,
+// a reused workstream opts into the full temporary-worktree safety net, so a
+// SIGINT still cleans it up exactly like a freshly-created one would.
+func TestRun_ExistingBranch_RemoveAfterFlag_SignalStillCleansUp(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+	newWorkstream(t, h, "feature/foo")
+	before := worktreePaths(t, dir)
+
+	// See the comment in TestRun_ExistingBranch_SignalLeavesInPlace: the
+	// marker must live outside the worktree so it stays clean and removable.
+	marker := filepath.Join(t.TempDir(), "started")
+	proc := h.start("run", "--branch", "feature/foo", "--remove-after", "--", "sh", "-c", "touch "+marker+"; sleep 30")
+	waitForFile(t, marker, 5*time.Second)
+	proc.signal(syscall.SIGINT)
+	r := proc.wait()
+
+	requireExitCode(t, r, 130) // 128 + SIGINT(2)
+	requireContains(t, r.stdout, "Cleaning up workstream")
+
+	after := worktreePaths(t, dir)
+	if len(after) != len(before)-1 {
+		t.Fatalf("expected the reused workstream to be removed after SIGINT with --remove-after: before=%v after=%v", before, after)
+	}
+	if !branchExists(t, dir, "feature/foo") {
+		t.Fatalf("expected branch feature/foo to be preserved (only the worktree is removed)")
 	}
 }
