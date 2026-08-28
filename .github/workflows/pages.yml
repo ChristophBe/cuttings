@@ -27,14 +27,7 @@ jobs:
 
       - uses: ./.github/actions/setup-go
 
-      - uses: peaceiris/actions-hugo@v3
-        with:
-          hugo-version: '0.165.0'
-          extended: true
-
-      - name: Build site
-        working-directory: site
-        run: hugo --minify
+      - uses: ./.github/actions/site-build
 
       - uses: actions/configure-pages@v6
 
