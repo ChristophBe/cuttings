@@ -7,9 +7,9 @@
 | `workstreams shell <TAB>` | Active workstream branches |
 | `workstreams remove <TAB>` | Active workstream branches |
 | `workstreams new <TAB>` | All local git branches |
-| `workstreams new --from <TAB>` | All local git branches |
+| `workstreams new --source <TAB>` | All local git branches |
 | `workstreams run --branch <TAB>` | All local git branches |
-| `workstreams run --from <TAB>` | All local git branches |
+| `workstreams run --source <TAB>` | All local git branches |
 
 ---
 

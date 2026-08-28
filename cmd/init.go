@@ -47,7 +47,7 @@ team shares the same settings. Use --overwrite to replace an existing file.`,
 # Override with env var: WORKSTREAMS_WORKTREES_DIR
 %s: %s
 
-# default_branch: branch to fork from when running "workstreams new" without --from.
+# default_branch: branch to fork from when running "workstreams new" without --source.
 # Leave empty to use HEAD.
 # Override with env var: WORKSTREAMS_DEFAULT_BRANCH
 %s: %q
