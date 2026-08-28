@@ -1,0 +1,30 @@
+/* Teal/cyan accent, replacing Hextra's default blue primary hue. */
+:root {
+  --primary-hue: 189deg;
+  --primary-saturation: 90%;
+  --primary-lightness: 38%;
+}
+
+.dark {
+  --primary-hue: 189deg;
+  --primary-saturation: 85%;
+  --primary-lightness: 55%;
+}
+
+/* Soft decorative glow behind the hero, using the same accent hue. */
+.hero-glow {
+  position: absolute;
+  top: -6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60rem;
+  max-width: 150vw;
+  height: 24rem;
+  background: radial-gradient(closest-side, hsl(var(--primary-hue) var(--primary-saturation) var(--primary-lightness) / 25%), transparent);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.dark .hero-glow {
+  background: radial-gradient(closest-side, hsl(var(--primary-hue) var(--primary-saturation) var(--primary-lightness) / 20%), transparent);
+}
