@@ -8,7 +8,7 @@ LDFLAGS    := -s -w \
               -X 'github.com/ChristophBe/workstreams/cmd.Version=$(VERSION)' \
               -X 'github.com/ChristophBe/workstreams/cmd.BuildTime=$(BUILD_TIME)'
 
-.PHONY: build install test e2e lint clean tag generate-docs help
+.PHONY: build install test e2e lint clean tag generate-docs site site-dev help
 
 ## build: compile the binary to ./bin/workstreams
 build:
@@ -37,6 +37,14 @@ clean:
 ## generate-docs: regenerate the command reference in docs/features.md
 generate-docs:
 	go run ./tools/gendocs
+
+## site: build the GitHub Pages site to site/public
+site:
+	cd site && hugo --minify
+
+## site-dev: serve the GitHub Pages site locally with live reload
+site-dev:
+	cd site && hugo server
 
 ## tag: create and push a release tag (usage: make tag VERSION=v1.2.3)
 tag:

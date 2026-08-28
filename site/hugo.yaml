@@ -1,0 +1,82 @@
+# Hugo configuration for the workstreams website.
+baseURL: "https://christophbe.github.io/workstreams/"
+title: "workstreams"
+locale: "en-US"
+
+enableRobotsTXT: true
+
+module:
+  hugoVersion:
+    extended: true
+    min: "0.146.0"
+  imports:
+    - path: github.com/imfing/hextra
+  mounts:
+    - source: content
+      target: content
+    # Pull the repo's docs/ folder in as the site's docs section, so the
+    # command reference and completion guide stay in sync with the CLI's
+    # generated docs (see docs-check CI) instead of being duplicated here.
+    - source: ../docs
+      target: content/docs
+
+markup:
+  highlight:
+    noClasses: false
+  goldmark:
+    renderer:
+      unsafe: true
+
+enableInlineShortcodes: true
+
+menu:
+  main:
+    - name: Docs
+      pageRef: /docs
+      weight: 1
+    - name: Search
+      weight: 2
+      params:
+        type: search
+    - name: GitHub
+      weight: 3
+      url: "https://github.com/ChristophBe/workstreams"
+      params:
+        icon: github
+
+params:
+  description: >-
+    workstreams is a CLI that turns git worktrees into isolated, disposable
+    development environments — built for parallel work with AI coding agents
+    like Claude Code.
+
+  navbar:
+    displayTitle: true
+    displayLogo: false
+
+  theme:
+    default: system
+    displayToggle: true
+
+  footer:
+    enable: true
+    displayCopyright: false
+    displayPoweredBy: true
+
+  search:
+    enable: true
+    type: flexsearch
+
+  # Disabled: docs/ pages are mounted in from outside site/content (see
+  # module.mounts above), so a generated "edit on GitHub" link would point
+  # at a bogus path rather than the real source file.
+  editURL:
+    enable: false
+
+  highlight:
+    copy:
+      enable: true
+      display: hover
+
+  page:
+    width: normal
