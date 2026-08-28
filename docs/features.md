@@ -153,11 +153,18 @@ Without --branch, a detached HEAD worktree is created at the current branch's
 HEAD commit (or --from if specified). With --branch, a worktree is created for
 that branch (which is also created if it does not exist yet).
 
+If --branch names a workstream that already exists, its worktree is reused
+in place (nothing is created) instead of failing. Since a reused workstream
+isn't temporary, it is not removed automatically: once the command finishes,
+you are asked whether to remove it. Use --remove-after to skip that prompt
+and always remove it, e.g. from a script or CI.
+
 Use -- to separate workstreams flags from the command and its arguments:
 
   workstreams run -- make test
   workstreams run --branch feature/foo -- go test ./...
   workstreams run --from origin/main -- ./scripts/ci.sh
+  workstreams run --branch feature/foo --remove-after -- go test ./...
 
 The exit code of the command is propagated to the calling shell.
 
@@ -170,14 +177,16 @@ workstreams run -- <command> [args...] [flags]
 ```
   workstreams run -- make test
   workstreams run --branch feature/foo -- go test ./...
+  workstreams run --branch feature/foo --remove-after -- go test ./...
 ```
 
 #### Options
 
 ```
-  -b, --branch string   branch to create a worktree for (created if it does not exist)
+  -b, --branch string   branch to create a worktree for (created if it does not exist; reused if it does)
   -f, --from string     commit-ish to base the worktree on (default: HEAD)
   -h, --help            help for run
+  -r, --remove-after    when reusing an existing --branch workstream, remove it after the command finishes without prompting
 ```
 
 ### workstreams shell

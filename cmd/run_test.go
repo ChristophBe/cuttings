@@ -29,6 +29,7 @@ type mockWorktreeManager struct {
 	addErr           error
 	addDetachedPath  string
 	addDetachedErr   error
+	pathResult       string
 	currentBranch    string
 	currentBranchErr error
 	removeErr        error
@@ -81,7 +82,7 @@ func (m *mockWorktreeManager) Remove(key string, _ bool) error {
 }
 func (m *mockWorktreeManager) ListBranches() ([]string, error)    { return nil, nil }
 func (m *mockWorktreeManager) List() ([]worktree.Worktree, error) { return nil, nil }
-func (m *mockWorktreeManager) Path(_ string) string               { return "" }
+func (m *mockWorktreeManager) Path(_ string) string               { return m.pathResult }
 func (m *mockWorktreeManager) Lock(key string) error {
 	m.callOrder = append(m.callOrder, "Lock")
 	m.lockCalled = true
@@ -129,7 +130,9 @@ func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
 	savedDeps := deps
 	savedRunBranch := runBranch
 	savedRunFrom := runFrom
+	savedRunRemoveAfter := runRemoveAfter
 	savedExitFn := exitFn
+	savedPromptReader := promptReader
 
 	// RunCleanupOnSignal defaults to true in real usage (config.Load sets it via
 	// config.DefaultRunCleanupOnSignal); mirror that here so existing tests keep
@@ -140,12 +143,18 @@ func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
 
 	runBranch = ""
 	runFrom = ""
+	runRemoveAfter = false
+	// Default to an already-exhausted reader so a test that unexpectedly hits
+	// the removal prompt gets a deterministic "no" (EOF) instead of blocking.
+	promptReader = strings.NewReader("")
 
 	return func() {
 		deps = savedDeps
 		runBranch = savedRunBranch
 		runFrom = savedRunFrom
+		runRemoveAfter = savedRunRemoveAfter
 		exitFn = savedExitFn
+		promptReader = savedPromptReader
 	}
 }
 
@@ -258,21 +267,153 @@ func TestRunCmd_NoBranch_CleanupCalled(t *testing.T) {
 
 // --- explicit --branch path ---
 
-func TestRunCmd_WorktreeAlreadyExists(t *testing.T) {
-	wt := &mockWorktreeManager{existsResult: true}
+func TestRunCmd_ExistingBranch_RunsInPlace_NoCreate(t *testing.T) {
+	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
+	runner := &mockRunner{}
+	restore := setupRunTest(wt, runner)
+	defer restore()
+
+	runBranch = "feature/exists"
+	promptReader = strings.NewReader("n\n")
+
+	if err := callRunE([]string{"echo", "hello"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if wt.addBranch != "" {
+		t.Error("Add() should not have been called for an existing workstream")
+	}
+	if runner.runDir != "/tmp/existing-ws" {
+		t.Errorf("runner dir = %q, want %q", runner.runDir, "/tmp/existing-ws")
+	}
+	if runner.runBranch != "feature/exists" {
+		t.Errorf("runner branch = %q, want %q", runner.runBranch, "feature/exists")
+	}
+}
+
+func TestRunCmd_ExistingBranch_PromptRemove_Yes(t *testing.T) {
+	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
 	restore := setupRunTest(wt, &mockRunner{})
 	defer restore()
 
 	runBranch = "feature/exists"
+	promptReader = strings.NewReader("y\n")
 
-	err := callRunE([]string{"echo", "hello"})
-	if err == nil {
-		t.Fatal("expected error when worktree already exists, got nil")
+	stdout := captureStdout(t, func() {
+		if err := callRunE([]string{"echo", "hello"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !wt.removeCalled {
+		t.Error("expected Remove() to be called after confirming removal")
 	}
-	if wt.addBranch != "" {
-		t.Error("Add() should not have been called")
+	if !strings.Contains(stdout, `Removing workstream "feature/exists"`) {
+		t.Errorf("stdout = %q, want removal confirmation message", stdout)
 	}
 }
+
+func TestRunCmd_ExistingBranch_PromptRemove_No(t *testing.T) {
+	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	runBranch = "feature/exists"
+	promptReader = strings.NewReader("n\n")
+
+	stdout := captureStdout(t, func() {
+		if err := callRunE([]string{"echo", "hello"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if wt.removeCalled {
+		t.Error("Remove() should not have been called after declining removal")
+	}
+	if !strings.Contains(stdout, `Leaving workstream "feature/exists" in place`) {
+		t.Errorf("stdout = %q, want the kept-in-place message", stdout)
+	}
+}
+
+func TestRunCmd_ExistingBranch_PromptDefaultsToNoOnEOF(t *testing.T) {
+	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	runBranch = "feature/exists"
+	promptReader = strings.NewReader("") // immediate EOF, e.g. no terminal attached
+
+	if err := callRunE([]string{"echo", "hello"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if wt.removeCalled {
+		t.Error("Remove() should not have been called when the prompt hits EOF")
+	}
+}
+
+func TestRunCmd_ExistingBranch_RemoveAfterFlag_SkipsPromptAndRemoves(t *testing.T) {
+	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	runBranch = "feature/exists"
+	runRemoveAfter = true
+	// No reader input at all — --remove-after must never read from it.
+	promptReader = strings.NewReader("")
+
+	if err := callRunE([]string{"echo", "hello"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !wt.removeCalled {
+		t.Error("expected Remove() to be called with --remove-after set")
+	}
+	if wt.removeKey != "feature/exists" {
+		t.Errorf("Remove key = %q, want %q", wt.removeKey, "feature/exists")
+	}
+}
+
+func TestRunCmd_ExistingBranch_RemoveAfterFlag_LocksLikeTemporary(t *testing.T) {
+	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	runBranch = "feature/exists"
+	runRemoveAfter = true
+
+	if err := callRunE([]string{"echo", "hello"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !wt.lockCalled {
+		t.Error("expected Lock() to be called when --remove-after opts a reused workstream into the temporary lifecycle")
+	}
+	if !wt.unlockCalled {
+		t.Error("expected Unlock() to be called after cleanup")
+	}
+}
+
+func TestRunCmd_ExistingBranch_WithoutRemoveAfter_NoLockRegistered(t *testing.T) {
+	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
+	restore := setupRunTest(wt, &mockRunner{})
+	defer restore()
+
+	runBranch = "feature/exists"
+	promptReader = strings.NewReader("n\n")
+
+	if err := callRunE([]string{"echo", "hello"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if wt.lockCalled {
+		t.Error("Lock() should not be called for a reused workstream without --remove-after")
+	}
+	if wt.unlockCalled {
+		t.Error("Unlock() should not be called for a reused workstream without --remove-after")
+	}
+}
+
+// Note: the "interrupted by a real OS signal" case for a reused workstream
+// (no prompt, no removal) is covered at the e2e level in e2e/run_test.go —
+// run.go's sigCh is only ever fed by signal.Notify, the same reason the
+// existing signal-handling tests above test cancellation semantics via
+// signalAwareRun directly rather than delivering a real signal here.
 
 func TestRunCmd_AddFails(t *testing.T) {
 	wt := &mockWorktreeManager{addErr: errors.New("git error")}
