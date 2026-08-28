@@ -49,3 +49,22 @@
   box-shadow: 1.1rem 0 0 #ffbd2e, 2.2rem 0 0 #27c93f;
   transform: translateY(-50%);
 }
+
+/* One corner radius for every card-style component, matching the terminal
+   chrome's 12px instead of three unrelated values (24px feature cards / 12px
+   terminal chrome / 8px nav cards). Element+class selector to reliably beat
+   the equal-specificity Tailwind utility classes without !important. */
+a.hextra-feature-card,
+a.hextra-card {
+  border-radius: 0.75rem;
+}
+
+/* Code blocks placed side-by-side in a grid (e.g. the Terminal 1/Terminal 2
+   pair) already get their spacing from the grid's own gap-4. Hextra's
+   .hextra-code-block only zeroes out its own margin-top for the DOM
+   :first-child (`hx:first:mt-0`), so the second block in a two-up grid keeps
+   its normal-flow mt-6 and sits 24px lower than the first. Reset it for any
+   code block that's a grid item, not just the first one. */
+.hx\:grid > .hextra-code-block {
+  margin-top: 0;
+}
