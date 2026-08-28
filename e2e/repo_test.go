@@ -167,6 +167,26 @@ func waitForWorktreeCount(t *testing.T, dir string, want int, timeout time.Durat
 	}
 }
 
+// waitForFile polls for path to exist, or fails the test after timeout. Used
+// to synchronize with a background `workstreams run` invocation (started via
+// harness.start) whose command touches a marker file once running — needed
+// when no new worktree appears to poll for instead (e.g. reusing an existing
+// one), and reading the process's stdout directly would race its own
+// in-flight writes.
+func waitForFile(t *testing.T, path string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s to exist", path)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 // gitCommonDir returns the repo at dir's shared .git directory, resolving
 // linked-worktree ".git" files the same way internal/worktree.Manager does
 // for locating run-lock storage.

@@ -142,3 +142,29 @@ func TestRun_CleanupOnSignalDisabledViaConfigFile_SkipsOrphanSweep(t *testing.T)
 		t.Fatalf("expected stale lock file left untouched when cleanup-on-signal is disabled: %v", err)
 	}
 }
+
+// TestRun_ExistingBranch_SignalLeavesInPlace verifies that a SIGINT
+// delivered while `run --branch <existing>` is executing does NOT remove
+// the reused workstream (unlike a freshly-created one) — since it was never
+// locked or registered for the temporary-worktree cleanup path, a signal is
+// treated as leaving real, non-temporary work exactly where it was.
+func TestRun_ExistingBranch_SignalLeavesInPlace(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+	newWorkstream(t, h, "feature/foo")
+	before := worktreePaths(t, dir)
+
+	marker := filepath.Join(dir, ".worktrees", "feature", "foo", "started")
+	proc := h.start("run", "--branch", "feature/foo", "--", "sh", "-c", "touch started; sleep 30")
+	waitForFile(t, marker, 5*time.Second)
+	proc.signal(syscall.SIGINT)
+	r := proc.wait()
+
+	requireExitCode(t, r, 130) // 128 + SIGINT(2)
+	requireNotContains(t, r.stdout, "Remove workstream")
+
+	after := worktreePaths(t, dir)
+	if len(after) != len(before) {
+		t.Fatalf("expected the reused workstream to survive SIGINT: before=%v after=%v", before, after)
+	}
+}

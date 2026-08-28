@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -64,13 +65,26 @@ func (h *harness) buildEnv() []string {
 // callers assert that explicitly, since a non-zero exit is often the
 // expected outcome. Use start instead when the test needs to interact with
 // the process (e.g. send it a signal) before it exits.
+//
+// Stdin is left unconnected (equivalent to /dev/null), so any read from it
+// hits an immediate EOF — this is what exercises the "no terminal attached"
+// default for interactive prompts. Use runWithStdin to script an answer.
 func (h *harness) run(args ...string) result {
+	h.t.Helper()
+	return h.runWithStdin("", args...)
+}
+
+// runWithStdin behaves like run, but connects stdin to a reader over the
+// given string — for scripting an answer to an interactive prompt (e.g.
+// "y\n" or "n\n" for the `run --branch <existing>` removal confirmation).
+func (h *harness) runWithStdin(stdin string, args ...string) result {
 	h.t.Helper()
 
 	//nolint:gosec // binPath is our own freshly-built test binary, not user input.
 	cmd := exec.Command(binPath, args...)
 	cmd.Dir = h.dir
 	cmd.Env = h.buildEnv()
+	cmd.Stdin = strings.NewReader(stdin)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
