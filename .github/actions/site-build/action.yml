@@ -1,0 +1,12 @@
+name: Site Build
+description: Build the GitHub Pages site, failing on any Hugo build error
+runs:
+  using: composite
+  steps:
+    - uses: peaceiris/actions-hugo@v3
+      with:
+        hugo-version: '0.165.0'
+        extended: true
+
+    - run: make site
+      shell: bash
