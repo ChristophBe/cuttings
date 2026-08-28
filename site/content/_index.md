@@ -2,6 +2,9 @@
 title: workstreams
 layout: hextra-home
 toc: false
+description: >-
+  workstreams turns git worktrees into isolated, one-command dev environments —
+  built for parallel work with AI coding agents like Claude Code.
 ---
 
 <div class="hx:relative">
@@ -39,9 +42,9 @@ workstreams new feature/my-feature
 </div>
 </div>
 
-<hr class="hx:my-2 hx:border-gray-200 hx:dark:border-neutral-800" />
+<hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
 
-<div class="hx:mt-16 hx:mb-8">
+<div class="hx:mb-8">
 {{< hextra/hero-section >}}
   Why workstreams?
 {{< /hextra/hero-section >}}
@@ -77,9 +80,9 @@ straight into a shell inside it.
   >}}
 {{< /hextra/feature-grid >}}
 
-<hr class="hx:my-2 hx:border-gray-200 hx:dark:border-neutral-800" />
+<hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
 
-<div class="hx:mt-16 hx:mb-8">
+<div class="hx:mb-8">
 {{< hextra/hero-section >}}
   Built for parallel AI coding agents
 {{< /hextra/hero-section >}}
@@ -108,9 +111,9 @@ workstreams new feature/new-dashboard
 
 </div>
 
-<hr class="hx:my-2 hx:border-gray-200 hx:dark:border-neutral-800" />
+<hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
 
-<div class="hx:mt-16 hx:mb-8" id="install">
+<div class="hx:mb-8" id="install">
 {{< hextra/hero-section >}}
   Install
 {{< /hextra/hero-section >}}
@@ -163,9 +166,9 @@ On native Windows (outside WSL), `make` isn't available by default — run
 {{< /tab >}}
 {{< /tabs >}}
 
-<hr class="hx:my-2 hx:border-gray-200 hx:dark:border-neutral-800" />
+<hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
 
-<div class="hx:mt-16 hx:mb-8">
+<div class="hx:mb-8">
 {{< hextra/hero-section >}}
   Quickstart
 {{< /hextra/hero-section >}}
@@ -243,16 +246,17 @@ re-create the workstream later.
 {{< /tab >}}
 {{< /tabs >}}
 
-<hr class="hx:my-2 hx:border-gray-200 hx:dark:border-neutral-800" />
+<hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
 
-<div class="hx:mt-16 hx:mb-8">
+<div class="hx:mb-8">
 {{< hextra/hero-section >}}
   Learn more
 {{< /hextra/hero-section >}}
 </div>
 
-{{< cards >}}
+{{< cards cols="4" >}}
   {{< card link="docs/features" title="Full command reference" subtitle="Every command, flag, environment variable, and exit code." icon="terminal" >}}
   {{< card link="docs/shell-completion" title="Shell completion" subtitle="Bash, Zsh, and Fish setup instructions." icon="cursor-click" >}}
-  {{< card link="https://github.com/ChristophBe/workstreams" title="Source on GitHub" subtitle="MIT licensed. Issues and contributions welcome." icon="github" >}}
+  {{< card link="https://github.com/ChristophBe/workstreams/blob/main/CONTRIBUTING.md" title="Contribute" subtitle="Coding guidelines, project layout, and the PR checklist — issues and PRs welcome." icon="heart" >}}
+  {{< card link="https://github.com/ChristophBe/workstreams" title="Source on GitHub" subtitle="MIT licensed — issues, PRs, and ⭐ stars all help." icon="github" >}}
 {{< /cards >}}
