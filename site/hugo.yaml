@@ -31,15 +31,24 @@ enableInlineShortcodes: true
 
 menu:
   main:
+    - name: Home
+      pageRef: /
+      weight: 1
+    - name: Install
+      pageRef: /#install
+      weight: 2
+    - name: Commands
+      pageRef: /#core-commands
+      weight: 3
     - name: Docs
       pageRef: /docs
-      weight: 1
+      weight: 4
     - name: Search
-      weight: 2
+      weight: 5
       params:
         type: search
     - name: GitHub
-      weight: 3
+      weight: 6
       url: "https://github.com/ChristophBe/workstreams"
       params:
         icon: github
