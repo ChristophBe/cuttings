@@ -153,3 +153,26 @@ a.hextra-card {
     clip-path: none !important;
   }
 }
+
+/* The hero's "Get Started" button links to #install, but the id sits on a
+   hand-written div outside markdown's heading pipeline — Hextra's own
+   auto-generated heading anchors dodge the fixed navbar via an invisible
+   offset span in render-heading.html, which this div never got. Verified
+   live: without this, #install lands with getBoundingClientRect().top at
+   exactly 0, i.e. fully behind the 64px (--navbar-height) navbar. */
+#install {
+  scroll-margin-top: calc(var(--navbar-height) + 1rem);
+}
+
+/* Every {{< tabs >}} panel wrapper on the homepage (Install, Quickstart)
+   was rendering narrower than the content column — verified live: 1073.5px
+   instead of the full 1232px. Hextra's tabs.html wraps each set of panels
+   in a bare, class-less <div>, which relies on ordinary block-flow to
+   reach full width; the homepage's hero content wrapper is a flex column
+   with align-items:start (same root cause as the <hr>/hero-grid width
+   bugs fixed earlier this session), so that div shrinks to its content's
+   intrinsic width instead. :has() targets it precisely since it has no
+   class of its own to select. */
+div:has(> .hextra-tabs-panel) {
+  width: 100%;
+}
