@@ -368,18 +368,3 @@ re-create the workstream later.
 {{% /steps %}}
 {{< /tab >}}
 {{< /tabs >}}
-
-<hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
-
-<div class="hx:mb-8">
-{{< hextra/hero-section >}}
-  Learn more
-{{< /hextra/hero-section >}}
-</div>
-
-{{< cards cols="4" >}}
-  {{< card link="docs/features" title="Full command reference" subtitle="Every command, flag, environment variable, and exit code." icon="terminal" >}}
-  {{< card link="docs/shell-completion" title="Shell completion" subtitle="Bash, Zsh, and Fish setup instructions." icon="cursor-click" >}}
-  {{< card link="https://github.com/ChristophBe/workstreams/blob/main/CONTRIBUTING.md" title="Contribute" subtitle="Coding guidelines, project layout, and the PR checklist — issues and PRs welcome." icon="heart" >}}
-  {{< card link="https://github.com/ChristophBe/workstreams" title="Source on GitHub" subtitle="MIT licensed — issues, PRs, and ⭐ stars all help." icon="github" >}}
-{{< /cards >}}
