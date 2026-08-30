@@ -4,7 +4,7 @@ layout: hextra-home
 toc: false
 description: >-
   workstreams turns git worktrees into isolated, one-command dev environments —
-  built for parallel work with AI coding agents like Claude Code.
+  built for parallel work with AI coding agents.
 ---
 
 <div class="hx:relative hero-wrap">
@@ -14,7 +14,7 @@ description: >-
 <div class="hero-grid-text">
 
 {{< hextra/hero-badge >}}
-  {{< icon name="claude" attributes="height=14" >}}
+  {{< icon name="sparkles" attributes="height=14" >}}
   <span>Built for the AI coding-agent era</span>
 {{< /hextra/hero-badge >}}
 
@@ -192,7 +192,7 @@ straight into a shell inside it.
 {{< /hextra/hero-section >}}
 </div>
 
-Tools like [Claude Code](https://claude.ai/claude-code) work best with a
+Tools like AI coding agents work best with a
 directory of their own. Open one `workstreams` session per feature and every
 agent gets a clean, conflict-free copy of the repo — no branch switching, no
 file locks, no lost context. Interactive, agent-driven, or one-off — every
@@ -204,14 +204,14 @@ session gets its own isolated worktree:
 
 ```bash {filename="Terminal 1"}
 workstreams new feature/auth-refactor
-# Claude Code works here, on its own branch,
+# Your coding agent works here, on its own branch,
 # in its own directory, with its own shell.
 ```
 
 ```bash {filename="Terminal 2"}
 workstreams run -b feature/dashboard -- claude
 # spins up (or reuses) the worktree, then
-# launches Claude Code straight into it.
+# launches your coding agent straight into it.
 ```
 
 ```bash {filename="Terminal 3"}

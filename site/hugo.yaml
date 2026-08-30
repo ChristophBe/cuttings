@@ -47,8 +47,7 @@ menu:
 params:
   description: >-
     workstreams is a CLI that turns git worktrees into isolated, disposable
-    development environments — built for parallel work with AI coding agents
-    like Claude Code.
+    development environments — built for parallel work with AI coding agents.
 
   navbar:
     displayTitle: true
