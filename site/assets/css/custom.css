@@ -68,3 +68,88 @@ a.hextra-card {
 .hx\:grid > .hextra-code-block {
   margin-top: 0;
 }
+
+/* Two-column hero: text left, cycling terminal demo right. Single column
+   (text, then terminal, in DOM order) below the lg breakpoint.
+   width:100% on both this and .hero-wrap is load-bearing: hextra-home's
+   content wrapper is a flex column with align-items:start, so *every*
+   unconstrained descendant in that chain shrinks/grows to its own
+   content's intrinsic width instead of filling the row — same issue the
+   <hr> dividers had earlier this session. .hero-grid's own width:100% was
+   circular without also fixing .hero-wrap (its parent), since that parent
+   was itself shrink-wrapping around .hero-grid's content. Left unfixed,
+   the terminal column visibly resized a few px every time the rotating
+   command's text width changed. */
+.hero-wrap {
+  width: 100%;
+}
+
+.hero-grid {
+  display: grid;
+  width: 100%;
+  gap: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+  .hero-grid {
+    /* minmax(0, Nfr), not bare Nfr: grid tracks default to an implicit
+       auto minimum (their content's min-content width) as a floor, and
+       the two rotating commands have slightly different min-content
+       widths — enough to reflow the columns by a few px every rotation.
+       Pinning the minimum to 0 makes the fr split ignore content
+       entirely. */
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: center;
+  }
+}
+
+/* Only one of the 2 rotating command screens is visible at a time (JS
+   toggles display); each is the same 2 lines, so the box never changes
+   height between rotations. Reset their own mt-6 (meant for normal-flow
+   stacking) so swapping which one is display:none never shifts anything. */
+.hero-grid-terminal .hextra-code-block {
+  margin-top: 0;
+  width: 100%;
+}
+
+/* The hero terminal is the single featured visual next to a much denser
+   text column (headline/subtitle/buttons) — at the site's normal inline
+   code size it read as a small, shrunken afterthought floating in mostly
+   empty space. Give it its own larger type size and roomier padding so it
+   carries visual weight comparable to the text column, plus a soft
+   elevation shadow so it reads as a deliberately "framed" panel rather
+   than an inline snippet. Selectors mirror highlight.css's own shape
+   (`.hextra-code-block`, `.hextra-code-block pre:not(.lntable pre)`) with
+   the `.hero-grid-terminal` ancestor added, so specificity reliably beats
+   the site-wide defaults without `!important`. */
+.hero-grid-terminal .hextra-code-block {
+  font-size: 1rem;
+}
+
+.hero-grid-terminal .hextra-code-block pre:not(.lntable pre) {
+  padding: 4rem 1.5rem 2.5rem;
+  margin-bottom: 0;
+  line-height: 1.75rem;
+  box-shadow: 0 20px 40px -20px rgb(0 0 0 / 20%);
+}
+
+.dark .hero-grid-terminal .hextra-code-block pre:not(.lntable pre) {
+  box-shadow: 0 20px 40px -20px rgb(0 0 0 / 55%);
+}
+
+/* Locked to a single fixed size regardless of which command is showing —
+   measured after the sizing above (the filename bar is absolutely
+   positioned over the pre, so the pre's own height is the block's full
+   height: 160px). Lines never wrap (pre is white-space:pre with its own
+   horizontal scroll), so this height is an exact fit, not a guess. */
+.hero-grid-terminal {
+  position: relative;
+  height: 10rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-grid-terminal .line {
+    transition: none !important;
+    clip-path: none !important;
+  }
+}

@@ -7,8 +7,11 @@ description: >-
   built for parallel work with AI coding agents like Claude Code.
 ---
 
-<div class="hx:relative">
+<div class="hx:relative hero-wrap">
 <div class="hero-glow"></div>
+
+<div class="hero-grid">
+<div class="hero-grid-text">
 
 {{< hextra/hero-badge >}}
   {{< icon name="claude" attributes="height=14" >}}
@@ -27,20 +30,121 @@ description: >-
 {{< /hextra/hero-subtitle >}}
 </div>
 
-<div class="hx:mb-10 hx:flex hx:gap-4 hx:flex-wrap">
+<div class="hx:flex hx:gap-4 hx:flex-wrap">
 {{< hextra/hero-button text="Get Started" link="#install" >}}
 {{< hextra/hero-button text="View on GitHub" link="https://github.com/ChristophBe/workstreams" >}}
 </div>
 
-<div class="hx:max-w-lg">
+</div>
+
+<div class="hero-grid-terminal" id="hero-terminal" aria-hidden="true">
 
 ```bash {filename="Terminal"}
 workstreams new feature/my-feature
 # isolated worktree + shell, ready to go
 ```
 
+```bash {filename="Terminal"}
+workstreams run -- go test ./...
+# runs it, tears down automatically
+```
+
 </div>
 </div>
+</div>
+
+<script>
+(function () {
+  var container = document.getElementById('hero-terminal');
+  if (!container) return;
+
+  var screens = [].slice.call(container.querySelectorAll('.hextra-code-block'));
+  if (!screens.length) return;
+
+  screens.forEach(function (screen, i) {
+    screen.style.display = i === 0 ? '' : 'none';
+  });
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+
+  var HOLD_MS = 2500;
+  var SECONDS_PER_CHAR = 0.035;
+  var MIN_LINE_DURATION = 0.12;
+  var LINE_GAP = 0.15;
+  var ERASE_SPEEDUP = 0.5;
+
+  function lines(screen) {
+    var code = screen.querySelector('.highlight pre code');
+    return code ? [].slice.call(code.querySelectorAll(':scope > .line')) : [];
+  }
+
+  function armLine(line, startDelay, speed) {
+    var chars = Math.max((line.textContent || '').trim().length, 1);
+    var duration = Math.max(chars * SECONDS_PER_CHAR * speed, MIN_LINE_DURATION);
+    line.style.transitionProperty = 'clip-path';
+    line.style.transitionDelay = startDelay + 's';
+    line.style.transitionDuration = duration + 's';
+    line.style.transitionTimingFunction = 'steps(' + chars + ', end)';
+    return startDelay + duration + LINE_GAP;
+  }
+
+  // Force-reflow technique instead of requestAnimationFrame: rAF is paused
+  // by the browser whenever the tab isn't the visible/foreground one, which
+  // would permanently stall this loop rather than just delaying it. Reading
+  // a layout property (offsetWidth) forces a synchronous style flush, so a
+  // "set to state A, force flush, set to state B" sequence reliably
+  // triggers the transition from A to B without waiting on rAF at all.
+  function typeIn(screen, cb) {
+    var ls = lines(screen);
+    ls.forEach(function (line) {
+      line.style.transition = 'none';
+      line.style.clipPath = 'inset(0 100% 0 0)';
+    });
+    void screen.offsetWidth;
+    var delay = 0;
+    ls.forEach(function (line) {
+      delay = armLine(line, delay, 1);
+    });
+    void screen.offsetWidth;
+    ls.forEach(function (line) {
+      line.style.clipPath = 'inset(0 0 0 0)';
+    });
+    window.setTimeout(cb, delay * 1000);
+  }
+
+  function eraseOut(screen, cb) {
+    var ls = lines(screen).slice().reverse();
+    var delay = 0;
+    ls.forEach(function (line) {
+      delay = armLine(line, delay, ERASE_SPEEDUP);
+    });
+    void screen.offsetWidth;
+    ls.forEach(function (line) {
+      line.style.clipPath = 'inset(0 100% 0 0)';
+    });
+    window.setTimeout(cb, delay * 1000);
+  }
+
+  var index = 0;
+  function cycle() {
+    var screen = screens[index];
+    typeIn(screen, function () {
+      window.setTimeout(function () {
+        eraseOut(screen, function () {
+          screen.style.display = 'none';
+          index = (index + 1) % screens.length;
+          screens[index].style.display = '';
+          cycle();
+        });
+      }, HOLD_MS);
+    });
+  }
+
+  cycle();
+})();
+</script>
 
 <hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
 
