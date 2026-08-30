@@ -177,6 +177,32 @@ div:has(> .hextra-tabs-panel) {
   width: 100%;
 }
 
+/* Same flex/align-items:start shrink-to-fit issue, this time on {{< cards >}}
+   (Contribute section): the .hextra-cards grid container itself has no
+   explicit width, so it collapsed to ~412px (one card's width) instead of
+   the full content column — auto-fill then only had room for a single
+   250px+ track, so all 3 cards stacked in one column instead of a row.
+   Harmless no-op on docs pages, which aren't inside the flex wrapper.
+   .contribute-cards (below) needs the same fix for the same reason its
+   own parent needed one — wrapping .hextra-cards in another div just
+   moves the shrink-to-fit collapse up one level instead of fixing it. */
+.hextra-cards,
+.contribute-cards {
+  width: 100%;
+}
+
+/* Each .hextra-card's content is wrapped in a <div class="hx:mt-auto"> —
+   fine when cards are natural height, but CSS Grid's default
+   align-items:stretch makes all 3 Contribute cards match the tallest one
+   ("Read the guide", 2-line subtitle), and mt-auto then pushes the two
+   shorter cards' icon+title down to consume that extra stretched space —
+   so they visibly sit lower than "Read the guide"'s. Scoped to this
+   section rather than .hextra-card globally, since docs pages use cards
+   too and haven't been checked for the same issue. */
+.contribute-cards .hextra-card > div {
+  margin-top: 0;
+}
+
 /* Plain markdown links in the homepage's body copy (e.g. "GitHub Releases",
    "Contributing guide") render as plain black, no-underline text —
    indistinguishable from surrounding prose. Every other page layout wraps

@@ -368,3 +368,25 @@ re-create the workstream later.
 {{% /steps %}}
 {{< /tab >}}
 {{< /tabs >}}
+
+<hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
+
+<div class="hx:mb-8">
+{{< hextra/hero-section >}}
+  Contribute
+{{< /hextra/hero-section >}}
+</div>
+
+workstreams is MIT-licensed and built in the open. Found a bug, have an
+idea, or want to fix something yourself? Issues and pull requests are
+welcome.
+
+<div class="hx:mb-8"></div>
+
+<div class="contribute-cards">
+{{< cards cols="3" >}}
+  {{< card link="https://github.com/ChristophBe/workstreams/issues/new" title="Open an issue" subtitle="Bug reports and feature ideas — no issue is too small." icon="exclamation-circle" >}}
+  {{< card link="https://github.com/ChristophBe/workstreams/blob/main/CONTRIBUTING.md" title="Read the guide" subtitle="Coding guidelines, project layout, and the full PR checklist." icon="heart" >}}
+  {{< card link="https://github.com/ChristophBe/workstreams" title="Star the repo" subtitle="MIT licensed — every star helps other people find it." icon="github" >}}
+{{< /cards >}}
+</div>
