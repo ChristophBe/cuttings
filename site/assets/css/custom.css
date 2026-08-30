@@ -196,3 +196,29 @@ main a:not([class]) {
 .dark main a:not([class]) {
   color: hsl(var(--primary-hue) var(--primary-saturation) calc(var(--primary-lightness) + 15%));
 }
+
+/* Responsive column count for the "Built for parallel AI coding agents"
+   terminal trio: 1 column on mobile, 2 on tablet, 3 on desktop. Hand-
+   authored rather than chained hx:sm:/hx:lg: utility classes, since those
+   would be new, untested Tailwind classes in this project's content — the
+   Tailwind build here only compiles classes already used in Hextra's own
+   templates or elsewhere in this project, so an unused breakpoint class
+   can silently produce no CSS (bit us with `my-16` earlier this session).
+   Paired with the existing hx:grid class in the markup (kept alongside
+   this one) so the existing `.hx\:grid > .hextra-code-block` alignment
+   fix still applies unchanged. */
+.parallel-terminals {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .parallel-terminals {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .parallel-terminals {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

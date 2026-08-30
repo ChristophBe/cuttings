@@ -195,11 +195,12 @@ straight into a shell inside it.
 Tools like [Claude Code](https://claude.ai/claude-code) work best with a
 directory of their own. Open one `workstreams` session per feature and every
 agent gets a clean, conflict-free copy of the repo — no branch switching, no
-file locks, no lost context. Two agents, two worktrees, running at once:
+file locks, no lost context. Interactive, agent-driven, or one-off — every
+session gets its own isolated worktree:
 
 <div class="hx:mb-8"></div>
 
-<div class="hx:grid hx:md:grid-cols-2 hx:gap-4">
+<div class="hx:grid hx:gap-4 parallel-terminals">
 
 ```bash {filename="Terminal 1"}
 workstreams new feature/auth-refactor
@@ -208,9 +209,15 @@ workstreams new feature/auth-refactor
 ```
 
 ```bash {filename="Terminal 2"}
-workstreams new feature/new-dashboard
-# A second agent (or a second you) works here —
-# completely isolated from the session above.
+workstreams run -b feature/dashboard -- claude
+# spins up (or reuses) the worktree, then
+# launches Claude Code straight into it.
+```
+
+```bash {filename="Terminal 3"}
+workstreams run -- go test ./...
+# a disposable worktree for one command —
+# runs, exits, and cleans itself up.
 ```
 
 </div>
@@ -253,7 +260,7 @@ Make sure the destination directory (e.g. `%USERPROFILE%\bin`) is on your
 Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`,
 `darwin_arm64`, `windows_amd64`.
 
-→ [Download the latest release](https://github.com/ChristophBe/workstreams/releases/latest)
+<div class="hx:mt-4"><a href="https://github.com/ChristophBe/workstreams/releases/latest" class="not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200" target="_blank" rel="noreferrer">Download the latest release</a></div>
 {{< /tab >}}
 {{< tab name="go install" >}}
 Requires [Go](https://golang.org/doc/install). This fetches the module,
