@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var sourceBranch string
+var fromBranch string
 
 var newCmd = &cobra.Command{
 	Use:   "new <branch>",
@@ -26,14 +26,14 @@ Two environment variables are set inside the shell:
   WORKSTREAM_BRANCH  the name of the branch
   WORKSTREAM_PATH    the absolute path to the worktree directory
 
-Use --source to specify the branch or commit to fork from when creating a new
+Use --from to specify the branch or commit to fork from when creating a new
 branch. If omitted, the new branch is created from HEAD.
 
 Exiting the shell removes you from the workstream but does not delete it.
 Use "workstreams remove <branch>" to clean up.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeBranches,
-	Example:           "  workstreams new feature/my-feature\n  workstreams new feature/my-feature --source main",
+	Example:           "  workstreams new feature/my-feature\n  workstreams new feature/my-feature --from main",
 	RunE: func(_ *cobra.Command, args []string) error {
 		branch := args[0]
 
@@ -43,7 +43,7 @@ Use "workstreams remove <branch>" to clean up.`,
 
 		_, _ = fmt.Fprintf(os.Stdout, "Creating workstream for branch %q...\n", branch)
 
-		from := sourceBranch
+		from := fromBranch
 		if from == "" {
 			from = deps.cfg.DefaultBranch
 		}
@@ -63,6 +63,6 @@ Use "workstreams remove <branch>" to clean up.`,
 
 func init() {
 	rootCmd.AddCommand(newCmd)
-	newCmd.Flags().StringVarP(&sourceBranch, "source", "s", "", "branch or commit to fork from when creating a new branch (default: HEAD)")
-	_ = newCmd.RegisterFlagCompletionFunc("source", completeBranches)
+	newCmd.Flags().StringVarP(&fromBranch, "from", "f", "", "branch or commit to fork from when creating a new branch (default: HEAD)")
+	_ = newCmd.RegisterFlagCompletionFunc("from", completeBranches)
 }

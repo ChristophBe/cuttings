@@ -84,7 +84,7 @@ Two environment variables are set inside the shell:
   WORKSTREAM_BRANCH  the name of the branch
   WORKSTREAM_PATH    the absolute path to the worktree directory
 
-Use --source to specify the branch or commit to fork from when creating a new
+Use --from to specify the branch or commit to fork from when creating a new
 branch. If omitted, the new branch is created from HEAD.
 
 Exiting the shell removes you from the workstream but does not delete it.
@@ -98,14 +98,14 @@ workstreams new <branch> [flags]
 
 ```
   workstreams new feature/my-feature
-  workstreams new feature/my-feature --source main
+  workstreams new feature/my-feature --from main
 ```
 
 #### Options
 
 ```
-  -h, --help            help for new
-  -s, --source string   branch or commit to fork from when creating a new branch (default: HEAD)
+  -f, --from string   branch or commit to fork from when creating a new branch (default: HEAD)
+  -h, --help          help for new
 ```
 
 ### workstreams remove (alias: rm)
@@ -150,7 +150,7 @@ remove the worktree when the command finishes (whether it succeeds or fails).
 Only the worktree directory is removed — no branch is created or deleted.
 
 Without --branch, a detached HEAD worktree is created at the current branch's
-HEAD commit (or --source if specified). With --branch, a worktree is created for
+HEAD commit (or --from if specified). With --branch, a worktree is created for
 that branch (which is also created if it does not exist yet).
 
 If --branch names a workstream that already exists, its worktree is reused
@@ -163,7 +163,7 @@ Use -- to separate workstreams flags from the command and its arguments:
 
   workstreams run -- make test
   workstreams run --branch feature/foo -- go test ./...
-  workstreams run --source origin/main -- ./scripts/ci.sh
+  workstreams run --from origin/main -- ./scripts/ci.sh
   workstreams run --branch feature/foo --remove-after -- go test ./...
 
 The exit code of the command is propagated to the calling shell.
@@ -184,9 +184,9 @@ workstreams run -- <command> [args...] [flags]
 
 ```
   -b, --branch string   branch to create a worktree for (created if it does not exist; reused if it does)
+  -f, --from string     commit-ish to base the worktree on (default: HEAD)
   -h, --help            help for run
   -r, --remove-after    when reusing an existing --branch workstream, remove it after the command finishes without prompting
-  -s, --source string   commit-ish to base the worktree on (default: HEAD)
 ```
 
 ### workstreams shell
