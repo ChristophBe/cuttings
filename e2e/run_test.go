@@ -184,14 +184,14 @@ func TestRun_ExistingBranch_CommandFailure_StillPrompts(t *testing.T) {
 	}
 }
 
-func TestRun_Source(t *testing.T) {
+func TestRun_From(t *testing.T) {
 	dir := initRepo(t)
 	runGit(t, dir, "checkout", "-b", "alt")
 	commitFile(t, dir, "alt-only.txt", "alt content\n", "add alt-only file")
 	runGit(t, dir, "checkout", "main")
 
 	h := newHarness(t, dir)
-	r := h.run("run", "--source", "alt", "--", "cat", "alt-only.txt")
+	r := h.run("run", "--from", "alt", "--", "cat", "alt-only.txt")
 	requireExitCode(t, r, 0)
 	requireContains(t, r.stdout, "alt content")
 }
@@ -214,16 +214,16 @@ func TestRun_EnvVars_Branch(t *testing.T) {
 	requireContains(t, r.stdout, "BRANCH=feature/env")
 }
 
-// TestRun_ShorthandBranchAndSource verifies -b and -s are equivalent to
-// --branch and --source.
-func TestRun_ShorthandBranchAndSource(t *testing.T) {
+// TestRun_ShorthandBranchAndFrom verifies -b and -f are equivalent to
+// --branch and --from.
+func TestRun_ShorthandBranchAndFrom(t *testing.T) {
 	dir := initRepo(t)
 	runGit(t, dir, "checkout", "-b", "alt")
 	commitFile(t, dir, "alt-only.txt", "alt content\n", "add alt-only file")
 	runGit(t, dir, "checkout", "main")
 
 	h := newHarness(t, dir)
-	r := h.run("run", "-b", "feature/short", "-s", "alt", "--", "cat", "alt-only.txt")
+	r := h.run("run", "-b", "feature/short", "-f", "alt", "--", "cat", "alt-only.txt")
 	requireExitCode(t, r, 0)
 	requireContains(t, r.stdout, "alt content")
 

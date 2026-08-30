@@ -129,7 +129,7 @@ func (m *mockRunner) Run(ctx context.Context, dir, branch string, command []stri
 func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
 	savedDeps := deps
 	savedRunBranch := runBranch
-	savedRunSource := runSource
+	savedRunFrom := runFrom
 	savedRunRemoveAfter := runRemoveAfter
 	savedExitFn := exitFn
 	savedPromptReader := promptReader
@@ -142,7 +142,7 @@ func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
 	deps.runner = runner
 
 	runBranch = ""
-	runSource = ""
+	runFrom = ""
 	runRemoveAfter = false
 	// Default to an already-exhausted reader so a test that unexpectedly hits
 	// the removal prompt gets a deterministic "no" (EOF) instead of blocking.
@@ -151,7 +151,7 @@ func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
 	return func() {
 		deps = savedDeps
 		runBranch = savedRunBranch
-		runSource = savedRunSource
+		runFrom = savedRunFrom
 		runRemoveAfter = savedRunRemoveAfter
 		exitFn = savedExitFn
 		promptReader = savedPromptReader
@@ -208,7 +208,7 @@ func TestRunCmd_NoBranch_FromFlagPassedToAddDetached(t *testing.T) {
 	restore := setupRunTest(wt, &mockRunner{})
 	defer restore()
 
-	runSource = "origin/main"
+	runFrom = "origin/main"
 
 	if err := callRunE([]string{"true"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -535,7 +535,7 @@ func TestRunCmd_FromFlagPassedToAdd(t *testing.T) {
 	defer restore()
 
 	runBranch = "feature/new"
-	runSource = "main"
+	runFrom = "main"
 
 	if err := callRunE([]string{"true"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -32,7 +32,7 @@ var promptReader io.Reader = os.Stdin
 
 var (
 	runBranch      string
-	runSource      string
+	runFrom        string
 	runRemoveAfter bool
 )
 
@@ -95,7 +95,7 @@ remove the worktree when the command finishes (whether it succeeds or fails).
 Only the worktree directory is removed — no branch is created or deleted.
 
 Without --branch, a detached HEAD worktree is created at the current branch's
-HEAD commit (or --source if specified). With --branch, a worktree is created for
+HEAD commit (or --from if specified). With --branch, a worktree is created for
 that branch (which is also created if it does not exist yet).
 
 If --branch names a workstream that already exists, its worktree is reused
@@ -108,7 +108,7 @@ Use -- to separate workstreams flags from the command and its arguments:
 
   workstreams run -- make test
   workstreams run --branch feature/foo -- go test ./...
-  workstreams run --source origin/main -- ./scripts/ci.sh
+  workstreams run --from origin/main -- ./scripts/ci.sh
   workstreams run --branch feature/foo --remove-after -- go test ./...
 
 The exit code of the command is propagated to the calling shell.`,
@@ -154,7 +154,7 @@ The exit code of the command is propagated to the calling shell.`,
 			worktreeKey = fmt.Sprintf("ws-run-%d", time.Now().UnixNano())
 
 			_, _ = fmt.Fprintf(os.Stdout, "Creating temporary workstream at %q...\n", envBranch)
-			path, err = deps.wt.AddDetached(worktreeKey, runSource)
+			path, err = deps.wt.AddDetached(worktreeKey, runFrom)
 			if err != nil {
 				return fmt.Errorf("create workstream: %w", err)
 			}
@@ -168,7 +168,7 @@ The exit code of the command is propagated to the calling shell.`,
 				path = deps.wt.Path(worktreeKey)
 				_, _ = fmt.Fprintf(os.Stdout, "Using existing workstream for branch %q...\n", worktreeKey)
 			} else {
-				from := runSource
+				from := runFrom
 				if from == "" {
 					from = deps.cfg.DefaultBranch
 				}
@@ -276,8 +276,8 @@ The exit code of the command is propagated to the calling shell.`,
 func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.Flags().StringVarP(&runBranch, "branch", "b", "", "branch to create a worktree for (created if it does not exist; reused if it does)")
-	runCmd.Flags().StringVarP(&runSource, "source", "s", "", "commit-ish to base the worktree on (default: HEAD)")
+	runCmd.Flags().StringVarP(&runFrom, "from", "f", "", "commit-ish to base the worktree on (default: HEAD)")
 	runCmd.Flags().BoolVarP(&runRemoveAfter, "remove-after", "r", false, "when reusing an existing --branch workstream, remove it after the command finishes without prompting")
 	_ = runCmd.RegisterFlagCompletionFunc("branch", completeBranches)
-	_ = runCmd.RegisterFlagCompletionFunc("source", completeBranches)
+	_ = runCmd.RegisterFlagCompletionFunc("from", completeBranches)
 }
