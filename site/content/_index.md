@@ -252,13 +252,21 @@ Make sure the destination directory (e.g. `%USERPROFILE%\bin`) is on your
 
 Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`,
 `darwin_arm64`, `windows_amd64`.
+
+→ [Download the latest release](https://github.com/ChristophBe/workstreams/releases/latest)
 {{< /tab >}}
 {{< tab name="go install" >}}
+Requires [Go](https://golang.org/doc/install). This fetches the module,
+compiles it, and installs the binary into `$(go env GOPATH)/bin` — make sure
+that directory is on your `PATH`.
+
 ```bash
 go install github.com/ChristophBe/workstreams@latest
 ```
 {{< /tab >}}
 {{< tab name="Build from source" >}}
+Requires [Go](https://golang.org/doc/install) and `make`.
+
 ```bash
 git clone https://github.com/ChristophBe/workstreams.git
 cd workstreams
@@ -267,6 +275,10 @@ make install
 
 On native Windows (outside WSL), `make` isn't available by default — run
 `go install -trimpath .` from the cloned directory instead.
+
+Building from source to make a change rather than just installing? See the
+[Contributing guide](https://github.com/ChristophBe/workstreams/blob/main/CONTRIBUTING.md)
+for the full dev setup — tests, linting, and pre-commit hooks.
 {{< /tab >}}
 {{< /tabs >}}
 
