@@ -371,6 +371,127 @@ re-create the workstream later.
 
 <hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
 
+<div class="hx:mb-8" id="core-commands">
+{{< hextra/hero-section >}}
+  Core commands
+{{< /hextra/hero-section >}}
+</div>
+
+Five commands cover the whole workflow, from spinning up an isolated
+worktree to cleaning it back up again:
+
+<div class="hx:mb-8"></div>
+
+<div class="command-cards">
+
+<div class="command-card" style="--command-hue: 189">
+<div class="command-card-text">
+<div class="command-card-header">{{< icon name="plus-circle" attributes="height=20" >}}<span class="command-card-title">New</span></div>
+
+Creates a worktree for the branch — making the branch too, if it doesn't
+exist yet — and drops you straight into an interactive shell inside it. A
+real, isolated directory, ready to work in.
+
+[Full reference →](docs/features#workstreams-new)
+</div>
+<div class="command-card-terminal">
+
+```bash {filename="Terminal"}
+workstreams new feature/auth
+# new worktree + branch, ready with a shell
+```
+
+</div>
+</div>
+
+<div class="command-card" style="--command-hue: 217">
+<div class="command-card-text">
+<div class="command-card-header">{{< icon name="view-list" attributes="height=20" >}}<span class="command-card-title">List</span></div>
+
+Shows every active workstream at a glance: branch name, worktree path, and
+whether it's the main checkout or a workstream. No need to remember what
+you've got open.
+
+[Full reference →](docs/features#workstreams-list-alias-ls)
+</div>
+<div class="command-card-terminal">
+
+```bash {filename="Terminal"}
+workstreams list
+# every active workstream, branch and type
+```
+
+</div>
+</div>
+
+<div class="command-card" style="--command-hue: 262">
+<div class="command-card-text">
+<div class="command-card-header">{{< icon name="terminal" attributes="height=20" >}}<span class="command-card-title">Shell</span></div>
+
+Reopens a shell inside any existing workstream, so you can jump back into
+work in progress anytime. Nothing is recreated — it's the same directory,
+exactly as you left it.
+
+[Full reference →](docs/features#workstreams-shell)
+</div>
+<div class="command-card-terminal">
+
+```bash {filename="Terminal"}
+workstreams shell feature/auth
+# back into that workstream, anytime
+```
+
+</div>
+</div>
+
+<div class="command-card" style="--command-hue: 350">
+<div class="command-card-text">
+<div class="command-card-header">{{< icon name="trash" attributes="height=20" >}}<span class="command-card-title">Remove</span></div>
+
+Deletes the worktree directory once you're done with it. The git branch
+itself is preserved, so you can pick the workstream back up later if you
+need to.
+
+[Full reference →](docs/features#workstreams-remove-alias-rm)
+</div>
+<div class="command-card-terminal">
+
+```bash {filename="Terminal"}
+workstreams remove feature/auth
+# worktree gone, branch preserved
+```
+
+</div>
+</div>
+
+<div class="command-card" style="--command-hue: 28">
+<div class="command-card-text">
+<div class="command-card-header">{{< icon name="play" attributes="height=20" >}}<span class="command-card-title">Run</span></div>
+
+Spins up a temporary worktree, runs a single command inside it, and tears
+the worktree down automatically — exit code and all. Add `--branch` to
+keep it around instead of a throwaway.
+
+[Full reference →](docs/features#workstreams-run)
+</div>
+<div class="command-card-terminal">
+
+```bash {filename="Terminal"}
+workstreams run -- go test ./...
+# temporary worktree, runs it, cleans itself up
+```
+
+</div>
+</div>
+
+</div>
+
+<div class="command-reference-cta">
+{{< hextra/hero-button text="Full command reference" link="docs/features" >}}
+</div>
+
+<hr class="hx:w-full hx:mt-16 hx:mb-16 hx:border-gray-200 hx:dark:border-neutral-800" />
+
 <div class="hx:mb-8">
 {{< hextra/hero-section >}}
   Contribute

@@ -160,7 +160,8 @@ a.hextra-card {
    offset span in render-heading.html, which this div never got. Verified
    live: without this, #install lands with getBoundingClientRect().top at
    exactly 0, i.e. fully behind the 64px (--navbar-height) navbar. */
-#install {
+#install,
+#core-commands {
   scroll-margin-top: calc(var(--navbar-height) + 1rem);
 }
 
@@ -247,4 +248,149 @@ main a:not([class]) {
   .parallel-terminals {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* "Core commands" section: one full-width card per command, containing
+   both the text (left) and its own terminal demo (right) inside a single
+   bordered/padded box — text above terminal, stacked in DOM order, below
+   the lg breakpoint. width:100% at both levels for the usual flex/
+   align-items:start shrink-to-fit reason (see notes above). */
+.command-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  width: 100%;
+}
+
+.command-card {
+  display: grid;
+  width: 100%;
+  gap: 2rem;
+  align-items: center;
+  padding: 2rem;
+  border-radius: 0.75rem;
+}
+
+@media (min-width: 1024px) {
+  .command-card {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+/* Per-command color, set via --command-hue inline on each .command-card
+   (one value per command, spread around the wheel so the 5 cards read as
+   distinct at a glance). Low saturation and low alpha throughout —
+   kept deliberately subtle (a soft tint, not a strong accent stripe) per
+   explicit feedback that an earlier, more saturated version read as too
+   loud. */
+.command-card {
+  border: 1px solid hsl(var(--command-hue) 40% 50% / 18%);
+  background: linear-gradient(135deg, hsl(var(--command-hue) 55% 55% / 10%), hsl(var(--command-hue) 55% 55% / 1%));
+}
+
+.dark .command-card {
+  border-color: hsl(var(--command-hue) 40% 62% / 20%);
+  background: linear-gradient(135deg, hsl(var(--command-hue) 55% 62% / 16%), hsl(var(--command-hue) 55% 62% / 3%));
+}
+
+/* Flex column so the header/description/link children get even spacing
+   via `gap` — simpler and more robust here than relying on markdown's
+   default paragraph margins, which Tailwind's preflight already zeroes
+   out. */
+.command-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.command-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+.command-card-header svg {
+  color: hsl(var(--command-hue) 70% 42%);
+  background: hsl(var(--command-hue) 70% 42% / 10%);
+  border-radius: 9999px;
+  padding: 0.4rem;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+}
+
+.dark .command-card-header svg {
+  color: hsl(var(--command-hue) 70% 68%);
+  background: hsl(var(--command-hue) 70% 68% / 16%);
+}
+
+/* The description paragraph and "Full reference" link are plain markdown
+   text/link with no Hextra typography wrapper (hextra-home.html doesn't
+   provide one — same reason plain links needed the main a:not([class])
+   rule above). Match that body-copy color/size here instead of leaving
+   them at browser/Tailwind-preflight defaults. */
+.command-card-text > p {
+  color: #6b7280;
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+}
+
+.dark .command-card-text > p {
+  color: #9ca3af;
+}
+
+.command-card-text > p:last-child {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Each command's terminal is a short, natural-height demo (1-2 lines) —
+   larger type and a soft shadow for a bit of depth against the card it's
+   now nested inside, same treatment as the hero's featured terminal. */
+.command-card-terminal .hextra-code-block {
+  font-size: 1rem;
+}
+
+.command-card-terminal .hextra-code-block pre:not(.lntable pre) {
+  /* padding-top = the absolutely-positioned filename/dots bar (32px) +
+     the same 2rem gap used below the command lines, so the command text
+     sits centered in the space below the bar rather than pushed toward
+     the bottom of the box (32px landed exactly on the bar's own height,
+     leaving 0px of actual gap above the text). */
+  padding: 4rem 1.5rem 2rem;
+  line-height: 1.6rem;
+  box-shadow: 0 20px 40px -20px rgb(0 0 0 / 20%);
+}
+
+/* On the hero, the terminal's default 5%-opacity tint (Hextra's own
+   hx:bg-primary-700/5) reads as a solid, neutral panel because it sits on
+   a plain white/dark page. Nested in a now-gradient .command-card, that
+   same 5% would just let the gradient bleed straight through, so it
+   needs its own near-opaque backing to read as a floating panel the same
+   way — filename bar included, so the two don't visually split apart. */
+.command-card-terminal .hextra-code-block pre:not(.lntable pre),
+.command-card-terminal .hextra-code-filename {
+  background-color: rgb(255 255 255 / 90%);
+}
+
+.dark .command-card-terminal .hextra-code-block pre:not(.lntable pre) {
+  box-shadow: 0 20px 40px -20px rgb(0 0 0 / 55%);
+}
+
+.dark .command-card-terminal .hextra-code-block pre:not(.lntable pre),
+.dark .command-card-terminal .hextra-code-filename {
+  background-color: rgb(23 23 23 / 85%);
+}
+
+/* CTA button below the cards — same width:100% shrink-to-fit fix as
+   everywhere else on this flex/align-items:start page (see notes above);
+   without it, `justify-content: center` has nothing to center within,
+   since the wrapping div collapses to the button's own width. */
+.command-reference-cta {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 1.5rem;
 }
