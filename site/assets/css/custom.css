@@ -176,3 +176,23 @@ a.hextra-card {
 div:has(> .hextra-tabs-panel) {
   width: 100%;
 }
+
+/* Plain markdown links in the homepage's body copy (e.g. "GitHub Releases",
+   "Contributing guide") render as plain black, no-underline text —
+   indistinguishable from surrounding prose. Every other page layout wraps
+   {{ .Content }} in Hextra's own `.content` div, which is what gives
+   markdown links their color+underline (typography.css); hextra-home.html
+   is the one layout that doesn't, since home pages are expected to be
+   entirely hand-styled shortcodes. `:not([class])` targets exactly the
+   plain markdown links (verified live: 7 on this page) without touching
+   hero-button/feature-card/badge links, which all carry their own classes
+   and styling already. */
+main a:not([class]) {
+  color: hsl(var(--primary-hue) var(--primary-saturation) var(--primary-lightness));
+  text-decoration: underline;
+  text-decoration-thickness: from-font;
+}
+
+.dark main a:not([class]) {
+  color: hsl(var(--primary-hue) var(--primary-saturation) calc(var(--primary-lightness) + 15%));
+}
