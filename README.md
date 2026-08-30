@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/ChristophBe/workstreams)](https://goreportcard.com/report/github.com/ChristophBe/workstreams)
 [![License: MIT](https://img.shields.io/github/license/ChristophBe/workstreams)](LICENSE)
 
-A CLI tool for creating and managing isolated git working environments based on git worktrees. Each workstream is a separate directory with its own shell session, enabling tools like [Claude Code](https://claude.ai/claude-code) to work on multiple branches in parallel without interference.
+A CLI tool for creating and managing isolated git working environments based on git worktrees. Each workstream is a separate directory with its own shell session, enabling AI coding agents to work on multiple branches in parallel without interference.
 
 ## The Problem
 
@@ -124,7 +124,7 @@ Variables available inside every workstream shell:
 
 You can use these in your shell prompt or in tool configuration to identify the active workstream.
 
-## Parallel Usage with Claude Code
+## Parallel Usage with AI Coding Agents
 
 Open a terminal per feature branch:
 
@@ -135,7 +135,7 @@ workstreams new feature/auth-refactor
 # Terminal 2
 workstreams new feature/new-dashboard
 
-# Each Claude Code session works in its own isolated directory
+# Each agent session works in its own isolated directory
 # with no branch conflicts or file-lock issues
 ```
 
