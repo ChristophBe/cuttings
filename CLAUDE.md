@@ -7,8 +7,8 @@ semi-autonomous changes, above all: **e2e coverage is mandatory for behavior cha
 
 ## What this project is
 
-`workstreams` is a Cobra-based CLI that manages git worktrees as isolated development
-environments ("workstreams") — see [README.md](README.md) and
+`cuttings` is a Cobra-based CLI that manages git worktrees as isolated development
+environments ("cuttings") — see [README.md](README.md) and
 [docs/features.md](docs/features.md). It is pure local git + filesystem + shell; there are no
 network or GitHub API calls anywhere in the codebase.
 

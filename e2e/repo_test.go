@@ -28,7 +28,7 @@ var gitEnvVars = []string{
 
 // runGit runs git with args in dir, failing the test on error. It is used
 // for fixture setup and for verifying repository state directly — never for
-// invoking the workstreams binary itself (use harness.run for that), so
+// invoking the cuttings binary itself (use harness.run for that), so
 // assertions stay genuinely black-box.
 func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
@@ -68,7 +68,7 @@ func initRepo(t *testing.T) string {
 
 	runGit(t, dir, "init", "-q", "-b", "main")
 	runGit(t, dir, "config", "user.email", "e2e@example.com")
-	runGit(t, dir, "config", "user.name", "Workstreams E2E")
+	runGit(t, dir, "config", "user.name", "Cuttings E2E")
 
 	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("# fixture\n"), 0o600); err != nil {
 		t.Fatalf("write README.md: %v", err)
@@ -129,10 +129,10 @@ func fakeShellPath() string {
 	return filepath.Join(repoRoot, "e2e", "testdata", "fakeshell.sh")
 }
 
-// readConfigFile returns the content of .workstreams.yaml at dir.
+// readConfigFile returns the content of .cuttings.yaml at dir.
 func readConfigFile(t *testing.T, dir string) string {
 	t.Helper()
-	return readFile(t, filepath.Join(dir, ".workstreams.yaml"))
+	return readFile(t, filepath.Join(dir, ".cuttings.yaml"))
 }
 
 // readFile returns the content of the file at path, built from a test
@@ -149,7 +149,7 @@ func readFile(t *testing.T, path string) string {
 
 // waitForWorktreeCount polls `git worktree list` in dir until it reports
 // exactly want entries, or fails the test after timeout. Used to synchronize
-// with a background `workstreams run` invocation (started via harness.start)
+// with a background `cuttings run` invocation (started via harness.start)
 // without racing its output.
 func waitForWorktreeCount(t *testing.T, dir string, want int, timeout time.Duration) []string {
 	t.Helper()
@@ -168,7 +168,7 @@ func waitForWorktreeCount(t *testing.T, dir string, want int, timeout time.Durat
 }
 
 // waitForFile polls for path to exist, or fails the test after timeout. Used
-// to synchronize with a background `workstreams run` invocation (started via
+// to synchronize with a background `cuttings run` invocation (started via
 // harness.start) whose command touches a marker file once running — needed
 // when no new worktree appears to poll for instead (e.g. reusing an existing
 // one), and reading the process's stdout directly would race its own
@@ -204,12 +204,12 @@ func runLockFileName(key string) string {
 }
 
 // writeOrphanRunLock seeds a run-lock file for key at path, owned by a PID
-// that is guaranteed not to be alive, so a subsequent `workstreams run`
+// that is guaranteed not to be alive, so a subsequent `cuttings run`
 // invocation's orphan sweep will find and clean it up. Returns the lock
 // file's path.
 func writeOrphanRunLock(t *testing.T, dir, key, path string) string {
 	t.Helper()
-	locksDir := filepath.Join(gitCommonDir(t, dir), "workstreams", "run-locks")
+	locksDir := filepath.Join(gitCommonDir(t, dir), "cuttings", "run-locks")
 	if err := os.MkdirAll(locksDir, 0o750); err != nil {
 		t.Fatalf("mkdir run-locks dir: %v", err)
 	}

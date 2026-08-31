@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ChristophBe/workstreams/internal/config"
-	"github.com/ChristophBe/workstreams/internal/worktree"
+	"github.com/ChristophBe/cuttings/internal/config"
+	"github.com/ChristophBe/cuttings/internal/worktree"
 )
 
 // --- mock implementations ---
@@ -183,8 +183,8 @@ func TestRunCmd_NoBranch_UsesDetachedWorktree(t *testing.T) {
 	if wt.addDetachedName == "" {
 		t.Error("AddDetached() was not called")
 	}
-	if !strings.HasPrefix(wt.addDetachedName, "ws-run-") {
-		t.Errorf("detached worktree name = %q, want prefix %q", wt.addDetachedName, "ws-run-")
+	if !strings.HasPrefix(wt.addDetachedName, "cut-run-") {
+		t.Errorf("detached worktree name = %q, want prefix %q", wt.addDetachedName, "cut-run-")
 	}
 }
 
@@ -199,7 +199,7 @@ func TestRunCmd_NoBranch_EnvBranchIsCurrentBranch(t *testing.T) {
 	}
 
 	if runner.runBranch != "feature/foo" {
-		t.Errorf("WORKSTREAM_BRANCH = %q, want %q", runner.runBranch, "feature/foo")
+		t.Errorf("CUTTING_BRANCH = %q, want %q", runner.runBranch, "feature/foo")
 	}
 }
 
@@ -242,8 +242,8 @@ func TestRunCmd_NoBranch_AddDetachedFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when AddDetached() fails, got nil")
 	}
-	if !strings.Contains(err.Error(), "create workstream") {
-		t.Errorf("error %q missing 'create workstream' prefix", err.Error())
+	if !strings.Contains(err.Error(), "create cutting") {
+		t.Errorf("error %q missing 'create cutting' prefix", err.Error())
 	}
 }
 
@@ -259,9 +259,9 @@ func TestRunCmd_NoBranch_CleanupCalled(t *testing.T) {
 	if !wt.removeCalled {
 		t.Error("Remove() was not called after successful run")
 	}
-	// The worktree key should be the generated ws-run-* name, not the branch name.
-	if !strings.HasPrefix(wt.removeKey, "ws-run-") {
-		t.Errorf("Remove key = %q, want prefix %q", wt.removeKey, "ws-run-")
+	// The worktree key should be the generated cut-run-* name, not the branch name.
+	if !strings.HasPrefix(wt.removeKey, "cut-run-") {
+		t.Errorf("Remove key = %q, want prefix %q", wt.removeKey, "cut-run-")
 	}
 }
 
@@ -280,7 +280,7 @@ func TestRunCmd_ExistingBranch_RunsInPlace_NoCreate(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if wt.addBranch != "" {
-		t.Error("Add() should not have been called for an existing workstream")
+		t.Error("Add() should not have been called for an existing cutting")
 	}
 	if runner.runDir != "/tmp/existing-ws" {
 		t.Errorf("runner dir = %q, want %q", runner.runDir, "/tmp/existing-ws")
@@ -307,7 +307,7 @@ func TestRunCmd_ExistingBranch_PromptRemove_Yes(t *testing.T) {
 	if !wt.removeCalled {
 		t.Error("expected Remove() to be called after confirming removal")
 	}
-	if !strings.Contains(stdout, `Removing workstream "feature/exists"`) {
+	if !strings.Contains(stdout, `Removing cutting "feature/exists"`) {
 		t.Errorf("stdout = %q, want removal confirmation message", stdout)
 	}
 }
@@ -345,7 +345,7 @@ func TestRunCmd_ExistingBranch_PromptRemove_No(t *testing.T) {
 	if wt.removeCalled {
 		t.Error("Remove() should not have been called after declining removal")
 	}
-	if !strings.Contains(stdout, `Leaving workstream "feature/exists" in place`) {
+	if !strings.Contains(stdout, `Leaving cutting "feature/exists" in place`) {
 		t.Errorf("stdout = %q, want the kept-in-place message", stdout)
 	}
 }
@@ -399,7 +399,7 @@ func TestRunCmd_ExistingBranch_RemoveAfterFlag_LocksLikeTemporary(t *testing.T) 
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !wt.lockCalled {
-		t.Error("expected Lock() to be called when --remove-after opts a reused workstream into the temporary lifecycle")
+		t.Error("expected Lock() to be called when --remove-after opts a reused cutting into the temporary lifecycle")
 	}
 	if !wt.unlockCalled {
 		t.Error("expected Unlock() to be called after cleanup")
@@ -418,14 +418,14 @@ func TestRunCmd_ExistingBranch_WithoutRemoveAfter_NoLockRegistered(t *testing.T)
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if wt.lockCalled {
-		t.Error("Lock() should not be called for a reused workstream without --remove-after")
+		t.Error("Lock() should not be called for a reused cutting without --remove-after")
 	}
 	if wt.unlockCalled {
-		t.Error("Unlock() should not be called for a reused workstream without --remove-after")
+		t.Error("Unlock() should not be called for a reused cutting without --remove-after")
 	}
 }
 
-// Note: the "interrupted by a real OS signal" case for a reused workstream
+// Note: the "interrupted by a real OS signal" case for a reused cutting
 // (no prompt, no removal) is covered at the e2e level in e2e/run_test.go —
 // run.go's sigCh is only ever fed by signal.Notify, the same reason the
 // existing signal-handling tests above test cancellation semantics via
@@ -442,8 +442,8 @@ func TestRunCmd_AddFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when Add() fails, got nil")
 	}
-	if !strings.Contains(err.Error(), "create workstream") {
-		t.Errorf("error %q missing 'create workstream' prefix", err.Error())
+	if !strings.Contains(err.Error(), "create cutting") {
+		t.Errorf("error %q missing 'create cutting' prefix", err.Error())
 	}
 }
 
@@ -633,7 +633,7 @@ func TestRunCmd_SweepOrphans_CalledBeforeCreate(t *testing.T) {
 }
 
 func TestRunCmd_SweepOrphans_PrintsCleanedKeys(t *testing.T) {
-	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", sweepResult: []string{"ws-run-123"}}
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", sweepResult: []string{"cut-run-123"}}
 	restore := setupRunTest(wt, &mockRunner{})
 	defer restore()
 
@@ -643,7 +643,7 @@ func TestRunCmd_SweepOrphans_PrintsCleanedKeys(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(stdout, "Cleaned up orphaned workstream from a previous run: ws-run-123") {
+	if !strings.Contains(stdout, "Cleaned up orphaned cutting from a previous run: cut-run-123") {
 		t.Errorf("stdout = %q, want it to mention the cleaned-up orphan", stdout)
 	}
 }
@@ -675,8 +675,8 @@ func TestRunCmd_LockCalledAfterWorktreeCreated_UnlockCalledOnCleanup(t *testing.
 	if !wt.lockCalled {
 		t.Error("Lock() was not called")
 	}
-	if !strings.HasPrefix(wt.lockKey, "ws-run-") {
-		t.Errorf("Lock key = %q, want prefix %q", wt.lockKey, "ws-run-")
+	if !strings.HasPrefix(wt.lockKey, "cut-run-") {
+		t.Errorf("Lock key = %q, want prefix %q", wt.lockKey, "cut-run-")
 	}
 	if !wt.unlockCalled {
 		t.Error("Unlock() was not called")

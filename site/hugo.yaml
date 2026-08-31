@@ -1,6 +1,6 @@
-# Hugo configuration for the workstreams website.
-baseURL: "https://christophbe.github.io/workstreams/"
-title: "workstreams"
+# Hugo configuration for the cuttings website.
+baseURL: "https://cuttings.dev/"
+title: "cuttings"
 locale: "en-US"
 
 enableRobotsTXT: true
@@ -49,13 +49,13 @@ menu:
         type: search
     - name: GitHub
       weight: 6
-      url: "https://github.com/ChristophBe/workstreams"
+      url: "https://github.com/ChristophBe/cuttings"
       params:
         icon: github
 
 params:
   description: >-
-    workstreams is a CLI that turns git worktrees into isolated, disposable
+    cuttings is a CLI that turns git worktrees into isolated, disposable
     development environments — built for parallel work with AI coding agents.
 
   navbar:

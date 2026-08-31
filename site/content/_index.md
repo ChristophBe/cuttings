@@ -1,9 +1,9 @@
 ---
-title: workstreams
+title: cuttings
 layout: hextra-home
 toc: false
 description: >-
-  workstreams turns git worktrees into isolated, one-command dev environments —
+  cuttings turns git worktrees into isolated, one-command dev environments —
   built for parallel work with AI coding agents.
 ---
 
@@ -32,7 +32,7 @@ description: >-
 
 <div class="hx:flex hx:gap-4 hx:flex-wrap">
 {{< hextra/hero-button text="Get Started" link="#install" >}}
-{{< hextra/hero-button text="View on GitHub" link="https://github.com/ChristophBe/workstreams" >}}
+{{< hextra/hero-button text="View on GitHub" link="https://github.com/ChristophBe/cuttings" >}}
 </div>
 
 </div>
@@ -40,12 +40,12 @@ description: >-
 <div class="hero-grid-terminal" id="hero-terminal" aria-hidden="true">
 
 ```bash {filename="Terminal"}
-workstreams new feature/my-feature
+cuttings new feature/my-feature
 # isolated worktree + shell, ready to go
 ```
 
 ```bash {filename="Terminal"}
-workstreams run -- go test ./...
+cuttings run -- go test ./...
 # runs it, tears down automatically
 ```
 
@@ -150,7 +150,7 @@ workstreams run -- go test ./...
 
 <div class="hx:mb-8">
 {{< hextra/hero-section >}}
-  Why workstreams?
+  Why cuttings?
 {{< /hextra/hero-section >}}
 </div>
 
@@ -160,7 +160,7 @@ each on a different branch, each with its own terminal session. Switching
 branches in a single directory disrupts uncommitted work and forces every
 tool, human or AI, to reload context.
 
-`workstreams` wraps [`git worktree`](https://git-scm.com/docs/git-worktree)
+`cuttings` wraps [`git worktree`](https://git-scm.com/docs/git-worktree)
 in a single command that creates the isolated directory *and* drops you
 straight into a shell inside it.
 
@@ -179,7 +179,7 @@ straight into a shell inside it.
   >}}
   {{< hextra/feature-card
     title="One-off commands"
-    subtitle="`workstreams run -- <cmd>` spins up a worktree, runs your command, and tears it down automatically — exit code and all. No shell, no manual cleanup."
+    subtitle="`cuttings run -- <cmd>` spins up a worktree, runs your command, and tears it down automatically — exit code and all. No shell, no manual cleanup."
     icon="play"
   >}}
 {{< /hextra/feature-grid >}}
@@ -193,7 +193,7 @@ straight into a shell inside it.
 </div>
 
 Tools like AI coding agents work best with a
-directory of their own. Open one `workstreams` session per feature and every
+directory of their own. Open one `cuttings` session per feature and every
 agent gets a clean, conflict-free copy of the repo — no branch switching, no
 file locks, no lost context. Interactive, agent-driven, or one-off — every
 session gets its own isolated worktree:
@@ -203,19 +203,19 @@ session gets its own isolated worktree:
 <div class="hx:grid hx:gap-4 parallel-terminals">
 
 ```bash {filename="Terminal 1"}
-workstreams new feature/auth-refactor
+cuttings new feature/auth-refactor
 # Your coding agent works here, on its own branch,
 # in its own directory, with its own shell.
 ```
 
 ```bash {filename="Terminal 2"}
-workstreams run -b feature/dashboard -- claude
+cuttings run -b feature/dashboard -- claude
 # spins up (or reuses) the worktree, then
 # launches your coding agent straight into it.
 ```
 
 ```bash {filename="Terminal 3"}
-workstreams run -- go test ./...
+cuttings run -- go test ./...
 # a disposable worktree for one command —
 # runs, exits, and cleans itself up.
 ```
@@ -233,7 +233,7 @@ workstreams run -- go test ./...
 {{< tabs >}}
 {{< tab name="Pre-built binary" >}}
 Download the latest release for your platform from
-[GitHub Releases](https://github.com/ChristophBe/workstreams/releases/latest),
+[GitHub Releases](https://github.com/ChristophBe/cuttings/releases/latest),
 then extract it and put the binary on your `PATH`. The steps differ slightly
 by OS since releases ship as `.tar.gz` for macOS/Linux and `.zip` for Windows:
 
@@ -241,15 +241,15 @@ by OS since releases ship as `.tar.gz` for macOS/Linux and `.zip` for Windows:
 {{< tab name="macOS / Linux" >}}
 ```bash
 # Example for Linux amd64 — swap in your platform's archive name
-tar -xzf workstreams_linux_amd64.tar.gz
-mv workstreams /usr/local/bin/
+tar -xzf cuttings_linux_amd64.tar.gz
+mv cuttings /usr/local/bin/
 ```
 {{< /tab >}}
 {{< tab name="Windows" >}}
 ```powershell
 # PowerShell
-Expand-Archive workstreams_windows_amd64.zip -DestinationPath .
-Move-Item workstreams.exe "$env:USERPROFILE\bin\workstreams.exe"
+Expand-Archive cuttings_windows_amd64.zip -DestinationPath .
+Move-Item cuttings.exe "$env:USERPROFILE\bin\cuttings.exe"
 ```
 
 Make sure the destination directory (e.g. `%USERPROFILE%\bin`) is on your
@@ -260,7 +260,7 @@ Make sure the destination directory (e.g. `%USERPROFILE%\bin`) is on your
 Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`,
 `darwin_arm64`, `windows_amd64`.
 
-<div class="hx:mt-4"><a href="https://github.com/ChristophBe/workstreams/releases/latest" class="not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200" target="_blank" rel="noreferrer">Download the latest release</a></div>
+<div class="hx:mt-4"><a href="https://github.com/ChristophBe/cuttings/releases/latest" class="not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200" target="_blank" rel="noreferrer">Download the latest release</a></div>
 {{< /tab >}}
 {{< tab name="go install" >}}
 Requires [Go](https://golang.org/doc/install). This fetches the module,
@@ -268,15 +268,15 @@ compiles it, and installs the binary into `$(go env GOPATH)/bin` — make sure
 that directory is on your `PATH`.
 
 ```bash
-go install github.com/ChristophBe/workstreams@latest
+go install github.com/ChristophBe/cuttings@latest
 ```
 {{< /tab >}}
 {{< tab name="Build from source" >}}
 Requires [Go](https://golang.org/doc/install) and `make`.
 
 ```bash
-git clone https://github.com/ChristophBe/workstreams.git
-cd workstreams
+git clone https://github.com/ChristophBe/cuttings.git
+cd cuttings
 make install
 ```
 
@@ -284,7 +284,7 @@ On native Windows (outside WSL), `make` isn't available by default — run
 `go install -trimpath .` from the cloned directory instead.
 
 Building from source to make a change rather than just installing? See the
-[Contributing guide](https://github.com/ChristophBe/workstreams/blob/main/CONTRIBUTING.md)
+[Contributing guide](https://github.com/ChristophBe/cuttings/blob/main/CONTRIBUTING.md)
 for the full dev setup — tests, linting, and pre-commit hooks.
 {{< /tab >}}
 {{< /tabs >}}
@@ -303,7 +303,7 @@ Most of the time you don't need an interactive shell at all — you just want
 a command to run against a clean copy of the repo:
 
 ```bash
-workstreams run -- go test ./...
+cuttings run -- go test ./...
 ```
 
 This creates a temporary worktree at the current branch's HEAD, runs the
@@ -316,54 +316,54 @@ Need the worktree to stick around on a named branch instead of a throwaway
 detached HEAD?
 
 ```bash
-workstreams run --branch feature/my-feature -- go test ./...
+cuttings run --branch feature/my-feature -- go test ./...
 ```
 
 `--branch` creates the branch (and its worktree) if it doesn't exist yet, or
-reuses it if it does. Since a reused workstream isn't temporary, you'll be
+reuses it if it does. Since a reused cutting isn't temporary, you'll be
 asked whether to remove it once the command finishes — add `--remove-after`
 to skip the prompt and always remove it, e.g. from a script or CI.
 {{< /tab >}}
 {{< tab name="Interactive session" >}}
 {{% steps %}}
 
-### Create a workstream
+### Create a cutting
 
 ```bash
-workstreams new feature/my-feature
+cuttings new feature/my-feature
 ```
 
 Creates a worktree at `.worktrees/feature/my-feature/`, creates the branch if
 it doesn't exist, and opens an interactive shell inside it. Type `exit` to
 return to your original shell — the worktree persists until you remove it.
 
-### List active workstreams
+### List active cuttings
 
 ```bash
-workstreams list
+cuttings list
 ```
 
 ```text
 BRANCH              PATH                                           TYPE
 ------              ----                                           ----
 main                /path/to/repo                                  main
-feature/my-feature  /path/to/repo/.worktrees/feature/my-feature    workstream
+feature/my-feature  /path/to/repo/.worktrees/feature/my-feature    cutting
 ```
 
-### Re-open a shell in an existing workstream
+### Re-open a shell in an existing cutting
 
 ```bash
-workstreams shell feature/my-feature
+cuttings shell feature/my-feature
 ```
 
 ### Remove it when you're done
 
 ```bash
-workstreams remove feature/my-feature
+cuttings remove feature/my-feature
 ```
 
 Removes the worktree directory. The branch itself is preserved, so you can
-re-create the workstream later.
+re-create the cutting later.
 
 {{% /steps %}}
 {{< /tab >}}
@@ -392,12 +392,12 @@ Creates a worktree for the branch — making the branch too, if it doesn't
 exist yet — and drops you straight into an interactive shell inside it. A
 real, isolated directory, ready to work in.
 
-[Full reference →](docs/features#workstreams-new)
+[Full reference →](docs/features#cuttings-new)
 </div>
 <div class="command-card-terminal">
 
 ```bash {filename="Terminal"}
-workstreams new feature/auth
+cuttings new feature/auth
 # new worktree + branch, ready with a shell
 ```
 
@@ -408,17 +408,17 @@ workstreams new feature/auth
 <div class="command-card-text">
 <div class="command-card-header">{{< icon name="view-list" attributes="height=20" >}}<span class="command-card-title">List</span></div>
 
-Shows every active workstream at a glance: branch name, worktree path, and
-whether it's the main checkout or a workstream. No need to remember what
+Shows every active cutting at a glance: branch name, worktree path, and
+whether it's the main checkout or a cutting. No need to remember what
 you've got open.
 
-[Full reference →](docs/features#workstreams-list-alias-ls)
+[Full reference →](docs/features#cuttings-list-alias-ls)
 </div>
 <div class="command-card-terminal">
 
 ```bash {filename="Terminal"}
-workstreams list
-# every active workstream, branch and type
+cuttings list
+# every active cutting, branch and type
 ```
 
 </div>
@@ -428,17 +428,17 @@ workstreams list
 <div class="command-card-text">
 <div class="command-card-header">{{< icon name="terminal" attributes="height=20" >}}<span class="command-card-title">Shell</span></div>
 
-Reopens a shell inside any existing workstream, so you can jump back into
+Reopens a shell inside any existing cutting, so you can jump back into
 work in progress anytime. Nothing is recreated — it's the same directory,
 exactly as you left it.
 
-[Full reference →](docs/features#workstreams-shell)
+[Full reference →](docs/features#cuttings-shell)
 </div>
 <div class="command-card-terminal">
 
 ```bash {filename="Terminal"}
-workstreams shell feature/auth
-# back into that workstream, anytime
+cuttings shell feature/auth
+# back into that cutting, anytime
 ```
 
 </div>
@@ -449,15 +449,15 @@ workstreams shell feature/auth
 <div class="command-card-header">{{< icon name="trash" attributes="height=20" >}}<span class="command-card-title">Remove</span></div>
 
 Deletes the worktree directory once you're done with it. The git branch
-itself is preserved, so you can pick the workstream back up later if you
+itself is preserved, so you can pick the cutting back up later if you
 need to.
 
-[Full reference →](docs/features#workstreams-remove-alias-rm)
+[Full reference →](docs/features#cuttings-remove-alias-rm)
 </div>
 <div class="command-card-terminal">
 
 ```bash {filename="Terminal"}
-workstreams remove feature/auth
+cuttings remove feature/auth
 # worktree gone, branch preserved
 ```
 
@@ -472,12 +472,12 @@ Spins up a temporary worktree, runs a single command inside it, and tears
 the worktree down automatically — exit code and all. Add `--branch` to
 keep it around instead of a throwaway.
 
-[Full reference →](docs/features#workstreams-run)
+[Full reference →](docs/features#cuttings-run)
 </div>
 <div class="command-card-terminal">
 
 ```bash {filename="Terminal"}
-workstreams run -- go test ./...
+cuttings run -- go test ./...
 # temporary worktree, runs it, cleans itself up
 ```
 
@@ -498,7 +498,7 @@ workstreams run -- go test ./...
 {{< /hextra/hero-section >}}
 </div>
 
-workstreams is MIT-licensed and built in the open. Found a bug, have an
+cuttings is MIT-licensed and built in the open. Found a bug, have an
 idea, or want to fix something yourself? Issues and pull requests are
 welcome.
 
@@ -506,8 +506,8 @@ welcome.
 
 <div class="contribute-cards">
 {{< cards cols="3" >}}
-  {{< card link="https://github.com/ChristophBe/workstreams/issues/new" title="Open an issue" subtitle="Bug reports and feature ideas — no issue is too small." icon="exclamation-circle" >}}
-  {{< card link="https://github.com/ChristophBe/workstreams/blob/main/CONTRIBUTING.md" title="Read the guide" subtitle="Coding guidelines, project layout, and the full PR checklist." icon="heart" >}}
-  {{< card link="https://github.com/ChristophBe/workstreams" title="Star the repo" subtitle="MIT licensed — every star helps other people find it." icon="github" >}}
+  {{< card link="https://github.com/ChristophBe/cuttings/issues/new" title="Open an issue" subtitle="Bug reports and feature ideas — no issue is too small." icon="exclamation-circle" >}}
+  {{< card link="https://github.com/ChristophBe/cuttings/blob/main/CONTRIBUTING.md" title="Read the guide" subtitle="Coding guidelines, project layout, and the full PR checklist." icon="heart" >}}
+  {{< card link="https://github.com/ChristophBe/cuttings" title="Star the repo" subtitle="MIT licensed — every star helps other people find it." icon="github" >}}
 {{< /cards >}}
 </div>

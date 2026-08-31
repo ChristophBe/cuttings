@@ -11,7 +11,7 @@ import (
 )
 
 // TestRun_SignalCleanup_SIGINT verifies that a real SIGINT delivered to
-// `workstreams run` while its command is executing still cleans up the
+// `cuttings run` while its command is executing still cleans up the
 // temporary worktree (via the signal-aware cancellation added in
 // cmd/run.go), and reports the shell exit-code convention (128+signum).
 func TestRun_SignalCleanup_SIGINT(t *testing.T) {
@@ -25,7 +25,7 @@ func TestRun_SignalCleanup_SIGINT(t *testing.T) {
 	r := proc.wait()
 
 	requireExitCode(t, r, 130) // 128 + SIGINT(2)
-	requireContains(t, r.stdout, "Cleaning up workstream")
+	requireContains(t, r.stdout, "Cleaning up cutting")
 
 	after := worktreePaths(t, dir)
 	if len(after) != len(before) {
@@ -46,7 +46,7 @@ func TestRun_SignalCleanup_SIGTERM(t *testing.T) {
 	r := proc.wait()
 
 	requireExitCode(t, r, 143) // 128 + SIGTERM(15)
-	requireContains(t, r.stdout, "Cleaning up workstream")
+	requireContains(t, r.stdout, "Cleaning up cutting")
 
 	after := worktreePaths(t, dir)
 	if len(after) != len(before) {
@@ -61,12 +61,12 @@ func TestRun_SignalCleanup_SIGTERM(t *testing.T) {
 // worktree orphaned. This is what distinguishes the config flag from a no-op.
 func TestRun_CleanupOnSignalDisabled_SignalLeavesOrphan(t *testing.T) {
 	dir := initRepo(t)
-	h := newHarness(t, dir).withEnv("WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL", "false")
+	h := newHarness(t, dir).withEnv("CUTTINGS_RUN_CLEANUP_ON_SIGNAL", "false")
 	before := worktreePaths(t, dir)
 
 	// A short sleep: with no signal handling installed, SIGINT kills
-	// `workstreams` immediately, but the orphaned "sleep" grandchild inherits
-	// the same stdout pipe workstreams was using — proc.wait() below can't
+	// `cuttings` immediately, but the orphaned "sleep" grandchild inherits
+	// the same stdout pipe cuttings was using — proc.wait() below can't
 	// see EOF (and so can't return) until that pipe's write end closes, which
 	// only happens once "sleep" itself exits.
 	proc := h.start("run", "--", "sleep", "2")
@@ -77,7 +77,7 @@ func TestRun_CleanupOnSignalDisabled_SignalLeavesOrphan(t *testing.T) {
 	if r.exitCode != signalTerminatedExitCode {
 		t.Fatalf("exit code = %d, want %d (signal-terminated)\nstdout:\n%s", r.exitCode, signalTerminatedExitCode, r.stdout)
 	}
-	requireNotContains(t, r.stdout, "Cleaning up workstream")
+	requireNotContains(t, r.stdout, "Cleaning up cutting")
 
 	stillThere := worktreePaths(t, dir)
 	if len(stillThere) != len(after) {
@@ -95,7 +95,7 @@ func TestRun_CleanupOnSignalDisabled_SignalLeavesOrphan(t *testing.T) {
 
 // TestRun_OrphanSweep_CleansUpOnNextRun seeds a run-lock file (as Lock would
 // write) pointing at an existing worktree, owned by a PID that's no longer
-// alive, and verifies the next `workstreams run` invocation's orphan sweep
+// alive, and verifies the next `cuttings run` invocation's orphan sweep
 // (SweepOrphans, called at the top of RunE when run_cleanup_on_signal is
 // enabled) removes both the stale worktree and its lock file.
 func TestRun_OrphanSweep_CleansUpOnNextRun(t *testing.T) {
@@ -108,7 +108,7 @@ func TestRun_OrphanSweep_CleansUpOnNextRun(t *testing.T) {
 	h := newHarness(t, dir)
 	r := h.run("run", "--", "true")
 	requireExitCode(t, r, 0)
-	requireContains(t, r.stdout, "Cleaned up orphaned workstream from a previous run: "+orphanKey)
+	requireContains(t, r.stdout, "Cleaned up orphaned cutting from a previous run: "+orphanKey)
 
 	if _, err := os.Stat(orphanPath); !os.IsNotExist(err) {
 		t.Fatalf("expected orphaned worktree removed, stat err = %v", err)
@@ -133,7 +133,7 @@ func TestRun_CleanupOnSignalDisabledViaConfigFile_SkipsOrphanSweep(t *testing.T)
 	h := newHarness(t, dir)
 	r := h.run("run", "--", "true")
 	requireExitCode(t, r, 0)
-	requireNotContains(t, r.stdout, "Cleaned up orphaned workstream")
+	requireNotContains(t, r.stdout, "Cleaned up orphaned cutting")
 
 	if _, err := os.Stat(orphanPath); err != nil {
 		t.Fatalf("expected orphaned worktree left untouched when cleanup-on-signal is disabled: %v", err)
@@ -145,13 +145,13 @@ func TestRun_CleanupOnSignalDisabledViaConfigFile_SkipsOrphanSweep(t *testing.T)
 
 // TestRun_ExistingBranch_SignalLeavesInPlace verifies that a SIGINT
 // delivered while `run --branch <existing>` is executing does NOT remove
-// the reused workstream (unlike a freshly-created one) — since it was never
+// the reused cutting (unlike a freshly-created one) — since it was never
 // locked or registered for the temporary-worktree cleanup path, a signal is
 // treated as leaving real, non-temporary work exactly where it was.
 func TestRun_ExistingBranch_SignalLeavesInPlace(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 	before := worktreePaths(t, dir)
 
 	// The marker lives outside the worktree (touching a file inside it would
@@ -165,22 +165,22 @@ func TestRun_ExistingBranch_SignalLeavesInPlace(t *testing.T) {
 	r := proc.wait()
 
 	requireExitCode(t, r, 130) // 128 + SIGINT(2)
-	requireNotContains(t, r.stdout, "Remove workstream")
+	requireNotContains(t, r.stdout, "Remove cutting")
 
 	after := worktreePaths(t, dir)
 	if len(after) != len(before) {
-		t.Fatalf("expected the reused workstream to survive SIGINT: before=%v after=%v", before, after)
+		t.Fatalf("expected the reused cutting to survive SIGINT: before=%v after=%v", before, after)
 	}
 }
 
 // TestRun_ExistingBranch_RemoveAfterFlag_SignalStillCleansUp verifies the
 // opposite of TestRun_ExistingBranch_SignalLeavesInPlace: with --remove-after,
-// a reused workstream opts into the full temporary-worktree safety net, so a
+// a reused cutting opts into the full temporary-worktree safety net, so a
 // SIGINT still cleans it up exactly like a freshly-created one would.
 func TestRun_ExistingBranch_RemoveAfterFlag_SignalStillCleansUp(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 	before := worktreePaths(t, dir)
 
 	// See the comment in TestRun_ExistingBranch_SignalLeavesInPlace: the
@@ -192,11 +192,11 @@ func TestRun_ExistingBranch_RemoveAfterFlag_SignalStillCleansUp(t *testing.T) {
 	r := proc.wait()
 
 	requireExitCode(t, r, 130) // 128 + SIGINT(2)
-	requireContains(t, r.stdout, "Cleaning up workstream")
+	requireContains(t, r.stdout, "Cleaning up cutting")
 
 	after := worktreePaths(t, dir)
 	if len(after) != len(before)-1 {
-		t.Fatalf("expected the reused workstream to be removed after SIGINT with --remove-after: before=%v after=%v", before, after)
+		t.Fatalf("expected the reused cutting to be removed after SIGINT with --remove-after: before=%v after=%v", before, after)
 	}
 	if !branchExists(t, dir, "feature/foo") {
 		t.Fatalf("expected branch feature/foo to be preserved (only the worktree is removed)")

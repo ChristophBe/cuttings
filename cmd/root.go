@@ -2,7 +2,7 @@
 Copyright © 2026 Christoph Becker
 */
 
-// Package cmd contains the Cobra command definitions for the workstreams CLI.
+// Package cmd contains the Cobra command definitions for the cuttings CLI.
 package cmd
 
 import (
@@ -10,27 +10,27 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ChristophBe/workstreams/internal/config"
-	"github.com/ChristophBe/workstreams/internal/shell"
-	"github.com/ChristophBe/workstreams/internal/worktree"
+	"github.com/ChristophBe/cuttings/internal/config"
+	"github.com/ChristophBe/cuttings/internal/shell"
+	"github.com/ChristophBe/cuttings/internal/worktree"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "workstreams",
-	Short: "Manage isolated git workstream environments",
-	Long: `workstreams is a CLI tool for creating and managing isolated git working
+	Use:   "cuttings",
+	Short: "Grow isolated git worktrees as cuttings",
+	Long: `cuttings is a CLI tool for creating and managing isolated git working
 environments based on git worktrees.
 
-Each workstream is a separate directory (stored in .worktrees/<branch>/) with
+Each cutting is a separate directory (stored in .worktrees/<branch>/) with
 its own shell session, allowing tools like Claude Code to work on multiple
 branches in parallel without interfering with each other.
 
 Examples:
-  workstreams new feature/my-feature   Create a new workstream and open a shell
-  workstreams list                     List all active workstreams
-  workstreams shell feature/my-feature Re-open a shell in an existing workstream
-  workstreams remove feature/my-feature Remove a workstream`,
+  cuttings new feature/my-feature   Create a new cutting and open a shell
+  cuttings list                     List all active cuttings
+  cuttings shell feature/my-feature Re-open a shell in an existing cutting
+  cuttings remove feature/my-feature Remove a cutting`,
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		repoRoot, err := worktree.FindRepoRoot()
 		if err != nil {

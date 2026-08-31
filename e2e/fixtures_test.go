@@ -4,10 +4,10 @@ package e2e
 
 import "testing"
 
-// newWorkstream runs `workstreams new <branch> [args...]` with the fake
+// newCutting runs `cuttings new <branch> [args...]` with the fake
 // shell fixture and fails the test unless it succeeds. Used by tests that
-// need an existing workstream as setup rather than exercising `new` itself.
-func newWorkstream(t *testing.T, h *harness, branch string, extraArgs ...string) result {
+// need an existing cutting as setup rather than exercising `new` itself.
+func newCutting(t *testing.T, h *harness, branch string, extraArgs ...string) result {
 	t.Helper()
 	args := append([]string{"new", branch}, extraArgs...)
 	r := h.withEnv("SHELL", fakeShellPath()).run(args...)

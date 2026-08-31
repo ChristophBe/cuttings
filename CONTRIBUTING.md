@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for contributing to `workstreams`. This document covers the development workflow, coding conventions, and expectations for pull requests.
+Thank you for contributing to `cuttings`. This document covers the development workflow, coding conventions, and expectations for pull requests.
 
 ---
 
@@ -15,8 +15,8 @@ Thank you for contributing to `workstreams`. This document covers the developmen
 **Setup:**
 
 ```bash
-git clone https://github.com/ChristophBe/workstreams.git
-cd workstreams
+git clone https://github.com/ChristophBe/cuttings.git
+cd cuttings
 pre-commit install          # install git hooks
 go build ./...              # verify the build
 go test ./...               # run tests
@@ -27,7 +27,7 @@ go test ./...               # run tests
 ## Project Layout
 
 ```
-workstreams/
+cuttings/
 ├── cmd/                   # Cobra command definitions (thin layer only)
 │   └── deps.go            # WorktreeManager and ShellSpawner interface definitions
 ├── internal/
@@ -76,7 +76,7 @@ workstreams/
 
 ### End-to-end (e2e) tests
 
-- Black-box CLI tests live in `e2e/` and exercise the compiled `workstreams` binary as a subprocess against real, throwaway git repositories — not the Go API directly. `e2e/main_test.go`'s `TestMain` builds the binary once and reuses it across the suite.
+- Black-box CLI tests live in `e2e/` and exercise the compiled `cuttings` binary as a subprocess against real, throwaway git repositories — not the Go API directly. `e2e/main_test.go`'s `TestMain` builds the binary once and reuses it across the suite.
 - They are gated behind the `e2e` build tag (`//go:build e2e`), so plain `go build ./...`, `go vet ./...`, and `go test ./...` (including the pre-commit `go-test` hook) skip them automatically. Run them explicitly with `make e2e` (or `go test -tags=e2e ./e2e/...`).
 - **Every new command, flag, or behavior change must include an e2e scenario in `e2e/`, in addition to unit tests for the underlying `internal/` logic and `cmd/` `RunE` wiring.**
 - e2e tests must stay hermetic: each test gets its own throwaway repo and an isolated `$HOME` via the `harness` helper in `e2e/harness_test.go` — never rely on the developer's or CI runner's real environment.
@@ -190,7 +190,7 @@ corresponding e2e scenario in `e2e/`.
 
 | Target        | Description                          |
 |---------------|--------------------------------------|
-| `make build`  | Build the binary to `./bin/workstreams` |
+| `make build`  | Build the binary to `./bin/cuttings` |
 | `make install`| Install to `$GOPATH/bin`             |
 | `make test`   | Run all unit tests                   |
 | `make e2e`    | Run end-to-end CLI tests             |

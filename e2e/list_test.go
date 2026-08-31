@@ -15,14 +15,14 @@ func TestList_MainOnly(t *testing.T) {
 	requireExitCode(t, r, 0)
 	requireContains(t, r.stdout, "BRANCH")
 	requireContains(t, r.stdout, "main")
-	requireNotContains(t, r.stdout, "workstream")
+	requireNotContains(t, r.stdout, "cutting")
 }
 
-func TestList_WithWorkstreams(t *testing.T) {
+func TestList_WithCuttings(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/a")
-	newWorkstream(t, h, "feature/b")
+	newCutting(t, h, "feature/a")
+	newCutting(t, h, "feature/b")
 
 	r := h.run("list")
 	requireExitCode(t, r, 0)
@@ -37,7 +37,7 @@ func TestList_WithWorkstreams(t *testing.T) {
 func TestList_AliasParity(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/a")
+	newCutting(t, h, "feature/a")
 
 	list := h.run("list")
 	ls := h.run("ls")

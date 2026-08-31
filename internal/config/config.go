@@ -2,9 +2,9 @@
 Copyright © 2026 Christoph Becker
 */
 
-// Package config provides configuration loading for the workstreams CLI.
-// Configuration is read from a .workstreams.yaml file at the git repository root
-// and can be overridden by environment variables with the WORKSTREAMS_ prefix.
+// Package config provides configuration loading for the cuttings CLI.
+// Configuration is read from a .cuttings.yaml file at the git repository root
+// and can be overridden by environment variables with the CUTTINGS_ prefix.
 //
 // Usage:
 //
@@ -22,19 +22,19 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// Config key constants used in .workstreams.yaml and for env var mapping.
+// Config key constants used in .cuttings.yaml and for env var mapping.
 const (
 	// KeyWorktreesDir is the config key for the worktrees storage directory.
 	KeyWorktreesDir = "worktrees_dir"
 	// KeyDefaultBranch is the config key for the default fork branch.
 	KeyDefaultBranch = "default_branch"
-	// KeyRunCleanupOnSignal is the config key controlling whether "workstreams
+	// KeyRunCleanupOnSignal is the config key controlling whether "cuttings
 	// run" cleans up its worktree when interrupted by a signal (SIGINT/SIGTERM/
 	// SIGHUP) or left behind by an uncatchable kill (SIGKILL/crash).
 	KeyRunCleanupOnSignal = "run_cleanup_on_signal"
 
 	// ConfigFileName is the name of the config file placed at the repo root.
-	ConfigFileName = ".workstreams.yaml"
+	ConfigFileName = ".cuttings.yaml"
 
 	// DefaultWorktreesDir is the directory (relative to repo root) used when not configured.
 	DefaultWorktreesDir = ".worktrees"
@@ -44,14 +44,14 @@ const (
 	DefaultRunCleanupOnSignal = true
 )
 
-// Config holds the resolved workstreams configuration for a repository.
+// Config holds the resolved cuttings configuration for a repository.
 type Config struct {
 	// WorktreesDir is the directory (relative to repo root) where worktrees are stored.
 	WorktreesDir string
-	// DefaultBranch is the branch or commit-ish new workstreams fork from by default.
+	// DefaultBranch is the branch or commit-ish new cuttings fork from by default.
 	// An empty string means HEAD.
 	DefaultBranch string
-	// RunCleanupOnSignal controls whether "workstreams run" installs signal
+	// RunCleanupOnSignal controls whether "cuttings run" installs signal
 	// handling (so SIGINT/SIGTERM/SIGHUP still clean up the worktree) and
 	// records a run lock for orphan detection (so a SIGKILL or crash is
 	// cleaned up on the next "run" invocation). Set to false to fall back to
@@ -67,7 +67,7 @@ func (c *Config) FilePath() string {
 	return filepath.Join(c.repoRoot, ConfigFileName)
 }
 
-// fileConfig mirrors the recognized .workstreams.yaml keys. Pointer fields let
+// fileConfig mirrors the recognized .cuttings.yaml keys. Pointer fields let
 // Load distinguish "key absent" (fall back to default) from "key present".
 type fileConfig struct {
 	WorktreesDir       *string `yaml:"worktrees_dir"`
@@ -75,9 +75,9 @@ type fileConfig struct {
 	RunCleanupOnSignal *bool   `yaml:"run_cleanup_on_signal"`
 }
 
-// Load reads .workstreams.yaml at repoRoot (if present) and returns a Config.
+// Load reads .cuttings.yaml at repoRoot (if present) and returns a Config.
 // A missing config file is not an error — defaults are used instead.
-// Environment variables with the WORKSTREAMS_ prefix override file values.
+// Environment variables with the CUTTINGS_ prefix override file values.
 func Load(repoRoot string) (*Config, error) {
 	cfg := &Config{
 		WorktreesDir:       DefaultWorktreesDir,
@@ -108,16 +108,16 @@ func Load(repoRoot string) (*Config, error) {
 		}
 	}
 
-	if s, ok := os.LookupEnv("WORKSTREAMS_WORKTREES_DIR"); ok {
+	if s, ok := os.LookupEnv("CUTTINGS_WORKTREES_DIR"); ok {
 		cfg.WorktreesDir = s
 	}
-	if s, ok := os.LookupEnv("WORKSTREAMS_DEFAULT_BRANCH"); ok {
+	if s, ok := os.LookupEnv("CUTTINGS_DEFAULT_BRANCH"); ok {
 		cfg.DefaultBranch = s
 	}
-	if s, ok := os.LookupEnv("WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL"); ok {
+	if s, ok := os.LookupEnv("CUTTINGS_RUN_CLEANUP_ON_SIGNAL"); ok {
 		b, err := strconv.ParseBool(s)
 		if err != nil {
-			return nil, fmt.Errorf("invalid WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL value %q: %w", s, err)
+			return nil, fmt.Errorf("invalid CUTTINGS_RUN_CLEANUP_ON_SIGNAL value %q: %w", s, err)
 		}
 		cfg.RunCleanupOnSignal = b
 	}

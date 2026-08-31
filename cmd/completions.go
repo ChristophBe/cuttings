@@ -8,10 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// completeWorkstreams returns the branch names of all active (non-main)
+// completeCuttings returns the branch names of all active (non-main)
 // worktrees, with the worktree path as a description. Used by commands that
-// operate on existing workstreams (shell, remove).
-func completeWorkstreams(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+// operate on existing cuttings (shell, remove).
+func completeCuttings(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	if deps.wt == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

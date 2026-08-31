@@ -17,10 +17,10 @@ func TestNew_FreshBranch(t *testing.T) {
 	requireExitCode(t, r, 0)
 
 	wantPath := filepath.Join(dir, ".worktrees", "feature", "foo")
-	requireContains(t, r.stdout, `Creating workstream for branch "feature/foo"`)
+	requireContains(t, r.stdout, `Creating cutting for branch "feature/foo"`)
 	requireContains(t, r.stdout, "Opening shell")
-	requireContains(t, r.stdout, "WORKSTREAM_BRANCH=feature/foo")
-	requireContains(t, r.stdout, "WORKSTREAM_PATH="+wantPath)
+	requireContains(t, r.stdout, "CUTTING_BRANCH=feature/foo")
+	requireContains(t, r.stdout, "CUTTING_PATH="+wantPath)
 	requireContains(t, r.stdout, "PWD="+wantPath)
 
 	if !branchExists(t, dir, "feature/foo") {
@@ -38,7 +38,7 @@ func TestNew_Source(t *testing.T) {
 	runGit(t, dir, "checkout", "main")
 
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "foo", "--source", "alt")
+	newCutting(t, h, "foo", "--source", "alt")
 
 	wantPath := filepath.Join(dir, ".worktrees", "foo")
 	if _, err := os.Stat(filepath.Join(wantPath, "alt-only.txt")); err != nil {
@@ -49,7 +49,7 @@ func TestNew_Source(t *testing.T) {
 func TestNew_AlreadyExists(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "foo")
+	newCutting(t, h, "foo")
 
 	r := h.withEnv("SHELL", fakeShellPath()).run("new", "foo")
 	requireExitCode(t, r, 1)
@@ -57,13 +57,13 @@ func TestNew_AlreadyExists(t *testing.T) {
 	requireContains(t, r.stderr, "shell foo")
 }
 
-func TestNew_BranchExistsNoWorkstream(t *testing.T) {
+func TestNew_BranchExistsNoCutting(t *testing.T) {
 	dir := initRepo(t)
 	runGit(t, dir, "branch", "existing-branch")
 	shaBefore := strings.TrimSpace(runGit(t, dir, "rev-parse", "existing-branch"))
 
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "existing-branch")
+	newCutting(t, h, "existing-branch")
 
 	shaAfter := strings.TrimSpace(runGit(t, dir, "rev-parse", "existing-branch"))
 	if shaBefore != shaAfter {
@@ -79,7 +79,7 @@ func TestNew_BranchExistsNoWorkstream(t *testing.T) {
 func TestNew_NestedBranchName(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo/bar")
+	newCutting(t, h, "feature/foo/bar")
 
 	wantPath := filepath.Join(dir, ".worktrees", "feature", "foo", "bar")
 	if _, err := os.Stat(wantPath); err != nil {
@@ -104,7 +104,7 @@ func TestNew_ShorthandSource(t *testing.T) {
 	runGit(t, dir, "checkout", "main")
 
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "foo", "-s", "alt")
+	newCutting(t, h, "foo", "-s", "alt")
 
 	wantPath := filepath.Join(dir, ".worktrees", "foo")
 	if _, err := os.Stat(filepath.Join(wantPath, "alt-only.txt")); err != nil {

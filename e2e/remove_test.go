@@ -11,7 +11,7 @@ import (
 func TestRemove_Clean(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 	wantPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 
 	r := h.run("remove", "feature/foo")
@@ -29,7 +29,7 @@ func TestRemove_Clean(t *testing.T) {
 func TestRemove_UncommittedChanges(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 	wsPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 
 	if err := os.WriteFile(filepath.Join(wsPath, "README.md"), []byte("dirty\n"), 0o600); err != nil {
@@ -48,7 +48,7 @@ func TestRemove_UncommittedChanges(t *testing.T) {
 func TestRemove_Force(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 	wsPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 
 	if err := os.WriteFile(filepath.Join(wsPath, "README.md"), []byte("dirty\n"), 0o600); err != nil {
@@ -68,7 +68,7 @@ func TestRemove_Force(t *testing.T) {
 func TestRemove_ShorthandForce(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 	wsPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 
 	if err := os.WriteFile(filepath.Join(wsPath, "README.md"), []byte("dirty\n"), 0o600); err != nil {
@@ -90,13 +90,13 @@ func TestRemove_NotFound(t *testing.T) {
 
 	r := h.run("remove", "nope")
 	requireExitCode(t, r, 1)
-	requireContains(t, r.stderr, "no workstream found")
+	requireContains(t, r.stderr, "no cutting found")
 }
 
 func TestRemove_AliasParity(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	r := h.run("rm", "feature/foo")
 	requireExitCode(t, r, 0)

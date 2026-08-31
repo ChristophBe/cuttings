@@ -1,4 +1,4 @@
-module github.com/ChristophBe/workstreams
+module github.com/ChristophBe/cuttings
 
 go 1.26.5
 

@@ -2,7 +2,7 @@
 Copyright © 2026 Christoph Becker
 */
 
-// Package cmd contains the Cobra command definitions for the workstreams CLI.
+// Package cmd contains the Cobra command definitions for the cuttings CLI.
 package cmd
 
 import (
@@ -15,8 +15,8 @@ import (
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all active workstreams",
-	Long: `Display all git worktrees managed by workstreams, showing the branch name
+	Short: "List all active cuttings",
+	Long: `Display all git worktrees managed by cuttings, showing the branch name
 and the absolute path to each worktree directory.
 
 The main worktree (the original clone) is listed but marked separately.`,
@@ -31,7 +31,7 @@ The main worktree (the original clone) is listed but marked separately.`,
 		_, _ = fmt.Fprintln(w, "BRANCH\tPATH\tTYPE")
 		_, _ = fmt.Fprintln(w, "------\t----\t----")
 		for _, t := range trees {
-			kind := "workstream"
+			kind := "cutting"
 			if t.IsMain {
 				kind = "main"
 			}

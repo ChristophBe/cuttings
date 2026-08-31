@@ -3,7 +3,7 @@ title: Documentation
 toc: false
 ---
 
-Everything below is generated straight from `workstreams`'s built-in
+Everything below is generated straight from `cuttings`'s built-in
 `--help` output (see `docs/features.md` in the repo, kept accurate by CI's
 docs-check job), so it can never drift out of sync with the CLI itself.
 

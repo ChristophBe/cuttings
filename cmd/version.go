@@ -12,8 +12,8 @@ import (
 
 // Version and BuildTime are injected at build time via ldflags:
 //
-//	-X 'github.com/ChristophBe/workstreams/cmd.Version=v1.0.0'
-//	-X 'github.com/ChristophBe/workstreams/cmd.BuildTime=2026-01-01T00:00:00Z'
+//	-X 'github.com/ChristophBe/cuttings/cmd.Version=v1.0.0'
+//	-X 'github.com/ChristophBe/cuttings/cmd.BuildTime=2026-01-01T00:00:00Z'
 var (
 	Version   = "dev"
 	BuildTime = "unknown"
@@ -25,7 +25,7 @@ var versionCmd = &cobra.Command{
 	// Override the parent's PersistentPreRunE so this command works outside any git repo.
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return nil },
 	Run: func(_ *cobra.Command, _ []string) {
-		fmt.Printf("workstreams %s (built %s)\n", Version, BuildTime)
+		fmt.Printf("cuttings %s (built %s)\n", Version, BuildTime)
 	},
 }
 

@@ -35,7 +35,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/ChristophBe/workstreams
+        - github.com/ChristophBe/cuttings
 
 issues:
   max-issues-per-linter: 0

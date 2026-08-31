@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"github.com/ChristophBe/workstreams/cmd"
+	"github.com/ChristophBe/cuttings/cmd"
 )
 
 const (
@@ -71,8 +71,8 @@ func disableAutoGenTag(c *cobra.Command) {
 }
 
 // linkHandler turns cobra/doc's default cross-reference filename (e.g.
-// "workstreams_new.md") into an in-page anchor ("#workstreams-new") matching
-// GitHub's heading slug for "## workstreams new", since every command is
+// "cuttings_new.md") into an in-page anchor ("#cuttings-new") matching
+// GitHub's heading slug for "## cuttings new", since every command is
 // rendered into this single file rather than one file per command.
 func linkHandler(name string) string {
 	name = strings.TrimSuffix(name, ".md")

@@ -3,7 +3,7 @@ Copyright © 2026 Christoph Becker
 */
 
 // Package shell provides functionality for spawning an interactive shell
-// session inside a workstream directory. The spawned shell replaces the
+// session inside a cutting directory. The spawned shell replaces the
 // current process via syscall.Exec, so exiting the shell returns the user
 // to their original terminal naturally.
 package shell
@@ -17,7 +17,7 @@ import (
 	"syscall"
 )
 
-// Spawner provides shell-spawning functionality for workstream directories.
+// Spawner provides shell-spawning functionality for cutting directories.
 // It is a zero-value-usable struct; use NewSpawner to construct one explicitly.
 type Spawner struct{}
 
@@ -31,8 +31,8 @@ func NewSpawner() *Spawner {
 // variable, falling back to /bin/sh when unset.
 //
 // Two additional environment variables are injected into the shell:
-//   - WORKSTREAM_BRANCH: the branch name of the workstream
-//   - WORKSTREAM_PATH:   the absolute path to the worktree directory
+//   - CUTTING_BRANCH: the branch name of the cutting
+//   - CUTTING_PATH:   the absolute path to the worktree directory
 //
 // Because Exec replaces the current process, this function only returns on
 // error.
@@ -45,7 +45,7 @@ func (s *Spawner) Spawn(dir, branch string) error {
 	env := BuildEnv(branch, dir)
 
 	if err := os.Chdir(dir); err != nil {
-		return fmt.Errorf("change directory to workstream: %w", err)
+		return fmt.Errorf("change directory to cutting: %w", err)
 	}
 
 	//nolint:gosec // $SHELL is the user's own choice of shell — intentional.
@@ -53,7 +53,7 @@ func (s *Spawner) Spawn(dir, branch string) error {
 }
 
 // Run executes command in dir, forwarding stdin/stdout/stderr to the terminal.
-// WORKSTREAM_BRANCH and WORKSTREAM_PATH are injected into the environment.
+// CUTTING_BRANCH and CUTTING_PATH are injected into the environment.
 // The error is the command's exit error (which may be *exec.ExitError).
 //
 // If ctx is canceled while the command is running, the child process is
@@ -72,22 +72,22 @@ func (s *Spawner) Run(ctx context.Context, dir, branch string, command []string)
 	return cmd.Run()
 }
 
-// BuildEnv returns the current environment with WORKSTREAM_BRANCH and
-// WORKSTREAM_PATH set (or overwritten). Existing values for these keys are
-// replaced so that nested workstreams always reflect the innermost context.
+// BuildEnv returns the current environment with CUTTING_BRANCH and
+// CUTTING_PATH set (or overwritten). Existing values for these keys are
+// replaced so that nested cuttings always reflect the innermost context.
 func BuildEnv(branch, path string) []string {
 	current := os.Environ()
 	out := make([]string, 0, len(current)+2)
 
 	for _, e := range current {
-		if strings.HasPrefix(e, "WORKSTREAM_BRANCH=") || strings.HasPrefix(e, "WORKSTREAM_PATH=") {
+		if strings.HasPrefix(e, "CUTTING_BRANCH=") || strings.HasPrefix(e, "CUTTING_PATH=") {
 			continue
 		}
 		out = append(out, e)
 	}
 	out = append(out,
-		"WORKSTREAM_BRANCH="+branch,
-		"WORKSTREAM_PATH="+path,
+		"CUTTING_BRANCH="+branch,
+		"CUTTING_PATH="+path,
 	)
 	return out
 }

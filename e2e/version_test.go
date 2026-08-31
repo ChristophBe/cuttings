@@ -10,7 +10,7 @@ func TestVersion_OutsideRepo(t *testing.T) {
 
 	r := h.run("version")
 	requireExitCode(t, r, 0)
-	requireContains(t, r.stdout, "workstreams e2e-test (built e2e-build-time)")
+	requireContains(t, r.stdout, "cuttings e2e-test (built e2e-build-time)")
 }
 
 func TestVersion_InsideRepo(t *testing.T) {
@@ -19,5 +19,5 @@ func TestVersion_InsideRepo(t *testing.T) {
 
 	r := h.run("version")
 	requireExitCode(t, r, 0)
-	requireContains(t, r.stdout, "workstreams e2e-test (built e2e-build-time)")
+	requireContains(t, r.stdout, "cuttings e2e-test (built e2e-build-time)")
 }

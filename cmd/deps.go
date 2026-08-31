@@ -7,8 +7,8 @@ package cmd
 import (
 	"context"
 
-	"github.com/ChristophBe/workstreams/internal/config"
-	"github.com/ChristophBe/workstreams/internal/worktree"
+	"github.com/ChristophBe/cuttings/internal/config"
+	"github.com/ChristophBe/cuttings/internal/worktree"
 )
 
 // WorktreeManager abstracts git worktree operations scoped to a repository.

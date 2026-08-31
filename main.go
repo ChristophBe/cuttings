@@ -21,7 +21,7 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/ChristophBe/workstreams/cmd"
+import "github.com/ChristophBe/cuttings/cmd"
 
 func main() {
 	cmd.Execute()

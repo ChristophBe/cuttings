@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// TestConfig_FilePrecedence verifies .workstreams.yaml values (worktrees_dir,
+// TestConfig_FilePrecedence verifies .cuttings.yaml values (worktrees_dir,
 // default_branch) are honored end-to-end when no flags/env vars override them.
 func TestConfig_FilePrecedence(t *testing.T) {
 	dir := initRepo(t)
@@ -19,7 +19,7 @@ func TestConfig_FilePrecedence(t *testing.T) {
 	writeConfig(t, dir, "worktrees_dir: custom-dir\ndefault_branch: develop\n")
 
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "foo")
+	newCutting(t, h, "foo")
 
 	wantPath := filepath.Join(dir, "custom-dir", "foo")
 	if _, err := os.Stat(filepath.Join(wantPath, "develop-only.txt")); err != nil {
@@ -27,8 +27,8 @@ func TestConfig_FilePrecedence(t *testing.T) {
 	}
 }
 
-// TestConfig_EnvVarOverridesFile verifies WORKSTREAMS_* environment
-// variables take precedence over .workstreams.yaml, per Viper's
+// TestConfig_EnvVarOverridesFile verifies CUTTINGS_* environment
+// variables take precedence over .cuttings.yaml, per Viper's
 // AutomaticEnv behavior in internal/config.
 func TestConfig_EnvVarOverridesFile(t *testing.T) {
 	dir := initRepo(t)
@@ -39,9 +39,9 @@ func TestConfig_EnvVarOverridesFile(t *testing.T) {
 	writeConfig(t, dir, "worktrees_dir: custom-dir\ndefault_branch: develop\n")
 
 	h := newHarness(t, dir).
-		withEnv("WORKSTREAMS_WORKTREES_DIR", "env-dir").
-		withEnv("WORKSTREAMS_DEFAULT_BRANCH", "main")
-	newWorkstream(t, h, "bar")
+		withEnv("CUTTINGS_WORKTREES_DIR", "env-dir").
+		withEnv("CUTTINGS_DEFAULT_BRANCH", "main")
+	newCutting(t, h, "bar")
 
 	wantPath := filepath.Join(dir, "env-dir", "bar")
 	if _, err := os.Stat(wantPath); err != nil {
@@ -52,10 +52,10 @@ func TestConfig_EnvVarOverridesFile(t *testing.T) {
 	}
 }
 
-// writeConfig writes a .workstreams.yaml file with the given content at dir.
+// writeConfig writes a .cuttings.yaml file with the given content at dir.
 func writeConfig(t *testing.T, dir, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, ".workstreams.yaml"), []byte(content), 0o600); err != nil {
-		t.Fatalf("write .workstreams.yaml: %v", err)
+	if err := os.WriteFile(filepath.Join(dir, ".cuttings.yaml"), []byte(content), 0o600); err != nil {
+		t.Fatalf("write .cuttings.yaml: %v", err)
 	}
 }

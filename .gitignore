@@ -27,7 +27,7 @@ go.work.sum
 # env file
 .env
 
-# workstreams worktree directories
+# cuttings worktree directories
 .worktrees/
 
 # Build output

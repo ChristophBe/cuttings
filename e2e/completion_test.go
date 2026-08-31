@@ -15,15 +15,15 @@ func TestCompletion_Shells(t *testing.T) {
 			if r.stdout == "" {
 				t.Fatalf("expected non-empty completion script for %s", shell)
 			}
-			requireContains(t, r.stdout, "workstreams")
+			requireContains(t, r.stdout, "cuttings")
 		})
 	}
 }
 
-func TestCompletion_DynamicWorkstreams(t *testing.T) {
+func TestCompletion_DynamicCuttings(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	r := h.run("__complete", "shell", "")
 	requireExitCode(t, r, 0)

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ChristophBe/workstreams/internal/worktree"
+	"github.com/ChristophBe/cuttings/internal/worktree"
 )
 
 // realPath resolves symlinks in a path. On macOS /var is a symlink to
@@ -180,12 +180,12 @@ func TestList_WithWorktree(t *testing.T) {
 		if tr.Branch == "feature/listed" {
 			found = true
 			if tr.IsMain {
-				t.Errorf("workstream worktree has IsMain = true")
+				t.Errorf("cutting worktree has IsMain = true")
 			}
 		}
 	}
 	if !found {
-		t.Error("List() did not include the added workstream")
+		t.Error("List() did not include the added cutting")
 	}
 }
 
@@ -400,12 +400,12 @@ func TestAddDetached(t *testing.T) {
 	dir := initRepo(t)
 	m := worktree.NewManager(dir, ".worktrees")
 
-	path, err := m.AddDetached("ws-run-test", "")
+	path, err := m.AddDetached("cut-run-test", "")
 	if err != nil {
 		t.Fatalf("AddDetached() unexpected error: %v", err)
 	}
 
-	want := filepath.Join(dir, ".worktrees", "ws-run-test")
+	want := filepath.Join(dir, ".worktrees", "cut-run-test")
 	if path != want {
 		t.Errorf("AddDetached() path = %q, want %q", path, want)
 	}
@@ -439,7 +439,7 @@ func TestAddDetached_WithBase(t *testing.T) {
 	run("commit", "-m", "second commit")
 
 	m := worktree.NewManager(dir, ".worktrees")
-	path, err := m.AddDetached("ws-run-at-first", strings.TrimSpace(string(firstHead)))
+	path, err := m.AddDetached("cut-run-at-first", strings.TrimSpace(string(firstHead)))
 	if err != nil {
 		t.Fatalf("AddDetached() unexpected error: %v", err)
 	}
@@ -459,18 +459,18 @@ func TestAddDetached_NoBranchCreated(t *testing.T) {
 	dir := initRepo(t)
 	m := worktree.NewManager(dir, ".worktrees")
 
-	if _, err := m.AddDetached("ws-run-nobranche", ""); err != nil {
+	if _, err := m.AddDetached("cut-run-nobranche", ""); err != nil {
 		t.Fatalf("AddDetached() unexpected error: %v", err)
 	}
 
 	// The generated name must NOT appear as a git branch.
 	//nolint:gosec // test helper — dir is a controlled temp path
-	out, err := exec.Command("git", "-C", dir, "branch", "--list", "ws-run-nobranche").Output()
+	out, err := exec.Command("git", "-C", dir, "branch", "--list", "cut-run-nobranche").Output()
 	if err != nil {
 		t.Fatalf("git branch --list: %v", err)
 	}
 	if strings.TrimSpace(string(out)) != "" {
-		t.Errorf("branch %q was created but should not have been", "ws-run-nobranche")
+		t.Errorf("branch %q was created but should not have been", "cut-run-nobranche")
 	}
 }
 
@@ -493,11 +493,11 @@ func TestExists(t *testing.T) {
 
 // --- run locks / orphan sweep ---
 
-// runLocksDir mirrors the package-private layout (<git-common-dir>/workstreams/run-locks)
+// runLocksDir mirrors the package-private layout (<git-common-dir>/cuttings/run-locks)
 // so tests can inspect or seed lock files without exporting internals. For a
 // freshly initRepo'd, non-linked repository the common dir is simply <dir>/.git.
 func runLocksDir(dir string) string {
-	return filepath.Join(dir, ".git", "workstreams", "run-locks")
+	return filepath.Join(dir, ".git", "cuttings", "run-locks")
 }
 
 // writeRawLock writes a lock file directly (bypassing Lock, which always

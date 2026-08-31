@@ -13,36 +13,36 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ChristophBe/workstreams/internal/shell"
+	"github.com/ChristophBe/cuttings/internal/shell"
 )
 
-// TestEnvVarInjection verifies that WORKSTREAM_BRANCH and WORKSTREAM_PATH are
+// TestEnvVarInjection verifies that CUTTING_BRANCH and CUTTING_PATH are
 // injected and that pre-existing values are replaced.
 //
 // Spawn replaces the process via syscall.Exec and cannot be unit-tested without
 // forking, so we validate the env-construction logic via the exported BuildEnv.
 func TestEnvVarInjection(t *testing.T) {
-	t.Setenv("WORKSTREAM_BRANCH", "old-branch")
-	t.Setenv("WORKSTREAM_PATH", "/old/path")
+	t.Setenv("CUTTING_BRANCH", "old-branch")
+	t.Setenv("CUTTING_PATH", "/old/path")
 
 	env := shell.BuildEnv("new-branch", "/new/path")
 
 	branchVal := ""
 	pathVal := ""
 	for _, e := range env {
-		if strings.HasPrefix(e, "WORKSTREAM_BRANCH=") {
-			branchVal = strings.TrimPrefix(e, "WORKSTREAM_BRANCH=")
+		if strings.HasPrefix(e, "CUTTING_BRANCH=") {
+			branchVal = strings.TrimPrefix(e, "CUTTING_BRANCH=")
 		}
-		if strings.HasPrefix(e, "WORKSTREAM_PATH=") {
-			pathVal = strings.TrimPrefix(e, "WORKSTREAM_PATH=")
+		if strings.HasPrefix(e, "CUTTING_PATH=") {
+			pathVal = strings.TrimPrefix(e, "CUTTING_PATH=")
 		}
 	}
 
 	if branchVal != "new-branch" {
-		t.Errorf("WORKSTREAM_BRANCH = %q, want %q", branchVal, "new-branch")
+		t.Errorf("CUTTING_BRANCH = %q, want %q", branchVal, "new-branch")
 	}
 	if pathVal != "/new/path" {
-		t.Errorf("WORKSTREAM_PATH = %q, want %q", pathVal, "/new/path")
+		t.Errorf("CUTTING_PATH = %q, want %q", pathVal, "/new/path")
 	}
 }
 
@@ -108,7 +108,7 @@ func TestRun_EnvVarsInjected(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "branch.txt")
 
-	if err := s.Run(context.Background(), dir, "my-branch", []string{"sh", "-c", "printf '%s' \"$WORKSTREAM_BRANCH\" > branch.txt"}); err != nil {
+	if err := s.Run(context.Background(), dir, "my-branch", []string{"sh", "-c", "printf '%s' \"$CUTTING_BRANCH\" > branch.txt"}); err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
 
@@ -118,7 +118,7 @@ func TestRun_EnvVarsInjected(t *testing.T) {
 		t.Fatalf("read output file: %v", err)
 	}
 	if string(data) != "my-branch" {
-		t.Errorf("WORKSTREAM_BRANCH = %q, want %q", string(data), "my-branch")
+		t.Errorf("CUTTING_BRANCH = %q, want %q", string(data), "my-branch")
 	}
 }
 
@@ -142,19 +142,19 @@ func TestRun_CommandWithArgs(t *testing.T) {
 }
 
 func TestEnvVarNotDuplicated(t *testing.T) {
-	t.Setenv("WORKSTREAM_BRANCH", "branch-a")
+	t.Setenv("CUTTING_BRANCH", "branch-a")
 
 	env := shell.BuildEnv("branch-b", "/some/path")
 
 	count := 0
 	for _, e := range env {
-		if strings.HasPrefix(e, "WORKSTREAM_BRANCH=") {
+		if strings.HasPrefix(e, "CUTTING_BRANCH=") {
 			count++
 		}
 	}
 
 	if count != 1 {
-		t.Errorf("WORKSTREAM_BRANCH appears %d times in env, want exactly 1", count)
+		t.Errorf("CUTTING_BRANCH appears %d times in env, want exactly 1", count)
 	}
 }
 

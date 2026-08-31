@@ -2,8 +2,8 @@
 Copyright © 2026 Christoph Becker
 */
 
-// Package worktree provides types for managing git worktrees as workstreams.
-// Each workstream is stored in .worktrees/<branch-name>/ relative to the
+// Package worktree provides types for managing git worktrees as cuttings.
+// Each cutting is stored in .worktrees/<branch-name>/ relative to the
 // repository root, enabling isolated working directories per branch.
 //
 // Usage:
@@ -30,10 +30,10 @@ import (
 // ErrNotAGitRepo is returned when no git repository can be found.
 var ErrNotAGitRepo = errors.New("not a git repository (or any of the parent directories)")
 
-// ErrWorktreeNotFound is returned when a workstream worktree does not exist.
-var ErrWorktreeNotFound = errors.New("workstream not found")
+// ErrWorktreeNotFound is returned when a cutting worktree does not exist.
+var ErrWorktreeNotFound = errors.New("cutting not found")
 
-// Worktree represents an active git worktree / workstream.
+// Worktree represents an active git worktree / cutting.
 type Worktree struct {
 	// Branch is the branch name checked out in this worktree.
 	Branch string
@@ -57,7 +57,7 @@ func NewManager(repoRoot, worktreesDir string) *Manager {
 	return &Manager{repoRoot: repoRoot, worktreesDir: worktreesDir}
 }
 
-// Path returns the absolute filesystem path where a workstream worktree for
+// Path returns the absolute filesystem path where a cutting worktree for
 // branch is stored. The path may not exist yet.
 func (m *Manager) Path(branch string) string {
 	// Replace slashes in branch names with OS path separators so that
@@ -113,7 +113,7 @@ func (m *Manager) List() ([]Worktree, error) {
 }
 
 // Remove removes the git worktree for the given branch. The branch itself is
-// preserved. Returns ErrWorktreeNotFound if no matching workstream exists.
+// preserved. Returns ErrWorktreeNotFound if no matching cutting exists.
 // By default git refuses to remove a worktree with uncommitted or untracked
 // changes; pass force to bypass that check.
 func (m *Manager) Remove(branch string, force bool) error {
@@ -140,7 +140,7 @@ func (m *Manager) Remove(branch string, force bool) error {
 	return nil
 }
 
-// Exists reports whether a workstream worktree for branch already exists.
+// Exists reports whether a cutting worktree for branch already exists.
 func (m *Manager) Exists(branch string) bool {
 	_, err := os.Stat(m.Path(branch))
 	return err == nil
@@ -217,7 +217,7 @@ func (m *Manager) AddDetached(name, base string) (string, error) {
 	return path, nil
 }
 
-// RunLock records an in-progress `workstreams run` invocation so that a
+// RunLock records an in-progress `cuttings run` invocation so that a
 // SweepOrphans call on a later invocation can detect and clean up a
 // worktree left behind by a parent process that died uncatchably (SIGKILL,
 // crash, `kill -9`) before its own deferred cleanup could run.
@@ -248,7 +248,7 @@ func (m *Manager) runLocksDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(commonDir, "workstreams", "run-locks"), nil
+	return filepath.Join(commonDir, "cuttings", "run-locks"), nil
 }
 
 // lockFileName derives a filesystem-safe, deterministic file name for key
@@ -259,7 +259,7 @@ func lockFileName(key string) string {
 	return fmt.Sprintf("%x.json", sum[:8])
 }
 
-// Lock records that a run for key (a worktree key, e.g. "ws-run-<ts>" or a
+// Lock records that a run for key (a worktree key, e.g. "cut-run-<ts>" or a
 // branch name) is in progress, owned by the current process. It must be
 // paired with a later Unlock call. Lock is best-effort infrastructure for
 // orphan detection: a caller should log a failure here rather than abort the
@@ -304,7 +304,7 @@ func (m *Manager) Unlock(key string) error {
 	return nil
 }
 
-// SweepOrphans finds run locks left behind by workstreams processes that
+// SweepOrphans finds run locks left behind by cuttings processes that
 // died without running their own cleanup (e.g. killed with SIGKILL, or
 // crashed) — the owning PID is no longer alive. For each such orphan it
 // removes the associated worktree and the stale lock file, returning the
@@ -350,7 +350,7 @@ func (m *Manager) SweepOrphans() ([]string, error) {
 		}
 
 		if removeErr := m.Remove(lock.Key, false); removeErr != nil && !errors.Is(removeErr, ErrWorktreeNotFound) {
-			errs = append(errs, fmt.Errorf("remove orphaned workstream %q: %w", lock.Key, removeErr))
+			errs = append(errs, fmt.Errorf("remove orphaned cutting %q: %w", lock.Key, removeErr))
 			continue
 		}
 		if err := os.Remove(lockPath); err != nil && !os.IsNotExist(err) {

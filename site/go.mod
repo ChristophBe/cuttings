@@ -1,4 +1,4 @@
-module github.com/ChristophBe/workstreams/site
+module github.com/ChristophBe/cuttings/site
 
 go 1.26.5
 

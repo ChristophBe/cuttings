@@ -1,36 +1,36 @@
-# workstreams
+# cuttings
 
-[![Release](https://github.com/ChristophBe/workstreams/actions/workflows/release.yml/badge.svg)](https://github.com/ChristophBe/workstreams/actions/workflows/release.yml)
-[![Latest release](https://img.shields.io/github/v/release/ChristophBe/workstreams)](https://github.com/ChristophBe/workstreams/releases/latest)
-[![Go Report Card](https://goreportcard.com/badge/github.com/ChristophBe/workstreams)](https://goreportcard.com/report/github.com/ChristophBe/workstreams)
-[![License: MIT](https://img.shields.io/github/license/ChristophBe/workstreams)](LICENSE)
+[![Release](https://github.com/ChristophBe/cuttings/actions/workflows/release.yml/badge.svg)](https://github.com/ChristophBe/cuttings/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/ChristophBe/cuttings)](https://github.com/ChristophBe/cuttings/releases/latest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ChristophBe/cuttings)](https://goreportcard.com/report/github.com/ChristophBe/cuttings)
+[![License: MIT](https://img.shields.io/github/license/ChristophBe/cuttings)](LICENSE)
 
-A CLI tool for creating and managing isolated git working environments based on git worktrees. Each workstream is a separate directory with its own shell session, enabling AI coding agents to work on multiple branches in parallel without interference.
+A CLI tool for creating and managing isolated git working environments based on git worktrees. Each cutting is a separate directory with its own shell session, enabling AI coding agents to work on multiple branches in parallel without interference.
 
 ## The Problem
 
 When working with AI coding assistants (or simply juggling multiple features), you often need multiple, completely isolated copies of a repository — each on a different branch, each with its own terminal session. Switching branches in a single directory disrupts uncommitted work and forces tools to reload context.
 
-`workstreams` solves this by wrapping git worktrees with a single command that creates the isolated directory *and* drops you into a shell inside it.
+`cuttings` solves this by wrapping git worktrees with a single command that creates the isolated directory *and* drops you into a shell inside it.
 
 ## Features
 
 - **Instant isolation** — one command creates a worktree and opens a shell in it
 - **Branch flexibility** — creates a new branch if it does not exist, uses an existing one otherwise
 - **Zero state** — all state is stored by git itself (`git worktree list`); no daemon or config database
-- **Environment injection** — `WORKSTREAM_BRANCH` and `WORKSTREAM_PATH` are set in the shell so prompts and tools know their context
+- **Environment injection** — `CUTTING_BRANCH` and `CUTTING_PATH` are set in the shell so prompts and tools know their context
 - **Co-located worktrees** — stored at `.worktrees/<branch>/` inside the repository, easy to find and gitignored
 
 ## Installation
 
 ### Download pre-built binary (recommended)
 
-Download the latest release for your platform from the [GitHub Releases page](https://github.com/ChristophBe/workstreams/releases/latest), extract the archive, and move the binary to a directory on your `PATH`:
+Download the latest release for your platform from the [GitHub Releases page](https://github.com/ChristophBe/cuttings/releases/latest), extract the archive, and move the binary to a directory on your `PATH`:
 
 ```bash
 # Example for Linux amd64
-tar -xzf workstreams_linux_amd64.tar.gz
-mv workstreams /usr/local/bin/
+tar -xzf cuttings_linux_amd64.tar.gz
+mv cuttings /usr/local/bin/
 ```
 
 Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`.
@@ -38,14 +38,14 @@ Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64
 ### Via Go install
 
 ```bash
-go install github.com/ChristophBe/workstreams@latest
+go install github.com/ChristophBe/cuttings@latest
 ```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/ChristophBe/workstreams.git
-cd workstreams
+git clone https://github.com/ChristophBe/cuttings.git
+cd cuttings
 make install
 ```
 
@@ -61,20 +61,20 @@ This runs tests and lint in CI before building multi-platform binaries and publi
 
 ## Usage
 
-### Create a new workstream
+### Create a new cutting
 
 ```bash
-workstreams new feature/my-feature
+cuttings new feature/my-feature
 ```
 
 Creates a worktree at `.worktrees/feature/my-feature/`, creates the branch if it does not exist, and opens an interactive shell inside. Type `exit` to return to your original shell. The worktree persists until you explicitly remove it.
 
-### List active workstreams
+### List active cuttings
 
 ```bash
-workstreams list
+cuttings list
 # or
-workstreams ls
+cuttings ls
 ```
 
 Output:
@@ -83,46 +83,46 @@ Output:
 BRANCH              PATH                                           TYPE
 ------              ----                                           ----
 main                /path/to/repo                                  main
-feature/my-feature  /path/to/repo/.worktrees/feature/my-feature    workstream
+feature/my-feature  /path/to/repo/.worktrees/feature/my-feature    cutting
 ```
 
-### Re-open a shell in an existing workstream
+### Re-open a shell in an existing cutting
 
 ```bash
-workstreams shell feature/my-feature
+cuttings shell feature/my-feature
 ```
 
-### Remove a workstream
+### Remove a cutting
 
 ```bash
-workstreams remove feature/my-feature
+cuttings remove feature/my-feature
 # or
-workstreams rm feature/my-feature
+cuttings rm feature/my-feature
 ```
 
-Removes the worktree directory. The git branch is preserved so you can re-create the workstream later.
+Removes the worktree directory. The git branch is preserved so you can re-create the cutting later.
 
 ## How It Works
 
-`workstreams new <branch>` is equivalent to:
+`cuttings new <branch>` is equivalent to:
 
 ```bash
 git worktree add -b <branch> .worktrees/<branch>/   # (or without -b if branch exists)
-WORKSTREAM_BRANCH=<branch> WORKSTREAM_PATH=.worktrees/<branch>/ exec $SHELL
+CUTTING_BRANCH=<branch> CUTTING_PATH=.worktrees/<branch>/ exec $SHELL
 ```
 
-The shell is started with `syscall.Exec`, which *replaces* the workstreams process. This means the shell is a first-class process — signals, job control, and `exit` all behave as expected.
+The shell is started with `syscall.Exec`, which *replaces* the cuttings process. This means the shell is a first-class process — signals, job control, and `exit` all behave as expected.
 
 ## Environment Variables
 
-Variables available inside every workstream shell:
+Variables available inside every cutting shell:
 
-| Variable            | Value                                       |
-|---------------------|---------------------------------------------|
-| `WORKSTREAM_BRANCH` | Branch name (e.g. `feature/my-feature`)     |
-| `WORKSTREAM_PATH`   | Absolute path to the worktree directory     |
+| Variable          | Value                                    |
+|-------------------|-------------------------------------------|
+| `CUTTING_BRANCH`  | Branch name (e.g. `feature/my-feature`)  |
+| `CUTTING_PATH`    | Absolute path to the worktree directory  |
 
-You can use these in your shell prompt or in tool configuration to identify the active workstream.
+You can use these in your shell prompt or in tool configuration to identify the active cutting.
 
 ## Parallel Usage with AI Coding Agents
 
@@ -130,10 +130,10 @@ Open a terminal per feature branch:
 
 ```bash
 # Terminal 1
-workstreams new feature/auth-refactor
+cuttings new feature/auth-refactor
 
 # Terminal 2
-workstreams new feature/new-dashboard
+cuttings new feature/new-dashboard
 
 # Each agent session works in its own isolated directory
 # with no branch conflicts or file-lock issues
@@ -141,21 +141,21 @@ workstreams new feature/new-dashboard
 
 ## Shell Completion
 
-`workstreams` supports tab-completion for branch names and active workstreams. Quick setup:
+`cuttings` supports tab-completion for branch names and active cuttings. Quick setup:
 
 ```bash
 # Bash
-workstreams completion bash >> ~/.bashrc
+cuttings completion bash >> ~/.bashrc
 
 # Zsh
 mkdir -p ~/.zsh/completions
-workstreams completion zsh > ~/.zsh/completions/_workstreams
+cuttings completion zsh > ~/.zsh/completions/_cuttings
 
 # Fish
-workstreams completion fish > ~/.config/fish/completions/workstreams.fish
+cuttings completion fish > ~/.config/fish/completions/cuttings.fish
 ```
 
-After restarting your shell, `workstreams shell <TAB>` and `workstreams remove <TAB>` will suggest active workstreams, and `workstreams new <TAB>` will suggest local branches.
+After restarting your shell, `cuttings shell <TAB>` and `cuttings remove <TAB>` will suggest active cuttings, and `cuttings new <TAB>` will suggest local branches.
 
 See [docs/shell-completion.md](docs/shell-completion.md) for detailed setup instructions per shell, including Oh My Zsh and notes on Bash versions.
 

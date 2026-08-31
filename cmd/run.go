@@ -2,7 +2,7 @@
 Copyright © 2026 Christoph Becker
 */
 
-// Package cmd contains the Cobra command definitions for the workstreams CLI.
+// Package cmd contains the Cobra command definitions for the cuttings CLI.
 package cmd
 
 import (
@@ -26,7 +26,7 @@ import (
 var exitFn = os.Exit
 
 // promptReader is the source read from when asking whether to remove a
-// reused workstream. A package-level variable so tests can inject scripted
+// reused cutting. A package-level variable so tests can inject scripted
 // answers instead of the real os.Stdin.
 var promptReader io.Reader = os.Stdin
 
@@ -36,12 +36,12 @@ var (
 	runRemoveAfter bool
 )
 
-// confirmRemoval asks the user whether the reused workstream for branch
+// confirmRemoval asks the user whether the reused cutting for branch
 // should be removed, reading one line from promptReader. Any answer other
 // than "y"/"yes" (including EOF, e.g. no terminal attached) is treated as
 // "no" — the safe default that never silently deletes existing work.
 func confirmRemoval(branch string) bool {
-	_, _ = fmt.Fprintf(os.Stdout, "Remove workstream %q? [y/N]: ", branch)
+	_, _ = fmt.Fprintf(os.Stdout, "Remove cutting %q? [y/N]: ", branch)
 	line, _ := bufio.NewReader(promptReader).ReadString('\n')
 	answer := strings.ToLower(strings.TrimSpace(line))
 	return answer == "y" || answer == "yes"
@@ -88,7 +88,7 @@ func signalExitCode(sig os.Signal) int {
 
 var runCmd = &cobra.Command{
 	Use:   "run -- <command> [args...]",
-	Short: "Run a command in a temporary workstream, then clean up",
+	Short: "Run a command in a temporary cutting, then clean up",
 	Long: `Create a temporary git worktree, run the given command inside it, then
 remove the worktree when the command finishes (whether it succeeds or fails).
 
@@ -98,23 +98,23 @@ Without --branch, a detached HEAD worktree is created at the current branch's
 HEAD commit (or --source if specified). With --branch, a worktree is created for
 that branch (which is also created if it does not exist yet).
 
-If --branch names a workstream that already exists, its worktree is reused
-in place (nothing is created) instead of failing. Since a reused workstream
+If --branch names a cutting that already exists, its worktree is reused
+in place (nothing is created) instead of failing. Since a reused cutting
 isn't temporary, it is not removed automatically: once the command finishes,
 you are asked whether to remove it. Use --remove-after to skip that prompt
 and always remove it, e.g. from a script or CI.
 
-Use -- to separate workstreams flags from the command and its arguments:
+Use -- to separate cuttings flags from the command and its arguments:
 
-  workstreams run -- make test
-  workstreams run --branch feature/foo -- go test ./...
-  workstreams run --source origin/main -- ./scripts/ci.sh
-  workstreams run --branch feature/foo --remove-after -- go test ./...
+  cuttings run -- make test
+  cuttings run --branch feature/foo -- go test ./...
+  cuttings run --source origin/main -- ./scripts/ci.sh
+  cuttings run --branch feature/foo --remove-after -- go test ./...
 
 The exit code of the command is propagated to the calling shell.`,
 	Args: cobra.MinimumNArgs(1),
-	Example: "  workstreams run -- make test\n  workstreams run --branch feature/foo -- go test ./...\n" +
-		"  workstreams run --branch feature/foo --remove-after -- go test ./...",
+	Example: "  cuttings run -- make test\n  cuttings run --branch feature/foo -- go test ./...\n" +
+		"  cuttings run --branch feature/foo --remove-after -- go test ./...",
 	RunE: func(_ *cobra.Command, args []string) error {
 		cleanupOnSignal := deps.cfg.RunCleanupOnSignal
 
@@ -123,7 +123,7 @@ The exit code of the command is propagated to the calling shell.`,
 				_, _ = fmt.Fprintf(os.Stderr, "warning: orphan sweep failed: %v\n", sweepErr)
 			} else {
 				for _, key := range cleaned {
-					_, _ = fmt.Fprintf(os.Stdout, "Cleaned up orphaned workstream from a previous run: %s\n", key)
+					_, _ = fmt.Fprintf(os.Stdout, "Cleaned up orphaned cutting from a previous run: %s\n", key)
 				}
 			}
 		}
@@ -139,9 +139,9 @@ The exit code of the command is propagated to the calling shell.`,
 
 		var (
 			path            string
-			envBranch       string // value used for WORKSTREAM_BRANCH env var
+			envBranch       string // value used for CUTTING_BRANCH env var
 			worktreeKey     string // key used to Remove the worktree on cleanup
-			reusingExisting bool   // true when --branch names a workstream that already exists
+			reusingExisting bool   // true when --branch names a cutting that already exists
 			err             error
 		)
 
@@ -151,12 +151,12 @@ The exit code of the command is propagated to the calling shell.`,
 			if err != nil {
 				return fmt.Errorf("get current branch: %w", err)
 			}
-			worktreeKey = fmt.Sprintf("ws-run-%d", time.Now().UnixNano())
+			worktreeKey = fmt.Sprintf("cut-run-%d", time.Now().UnixNano())
 
-			_, _ = fmt.Fprintf(os.Stdout, "Creating temporary workstream at %q...\n", envBranch)
+			_, _ = fmt.Fprintf(os.Stdout, "Creating temporary cutting at %q...\n", envBranch)
 			path, err = deps.wt.AddDetached(worktreeKey, runSource)
 			if err != nil {
-				return fmt.Errorf("create workstream: %w", err)
+				return fmt.Errorf("create cutting: %w", err)
 			}
 		} else {
 			// Explicit branch.
@@ -166,7 +166,7 @@ The exit code of the command is propagated to the calling shell.`,
 			if deps.wt.Exists(worktreeKey) {
 				reusingExisting = true
 				path = deps.wt.Path(worktreeKey)
-				_, _ = fmt.Fprintf(os.Stdout, "Using existing workstream for branch %q...\n", worktreeKey)
+				_, _ = fmt.Fprintf(os.Stdout, "Using existing cutting for branch %q...\n", worktreeKey)
 			} else {
 				from := runSource
 				if from == "" {
@@ -174,10 +174,10 @@ The exit code of the command is propagated to the calling shell.`,
 				}
 				createBranch := !deps.wt.BranchExists(worktreeKey)
 
-				_, _ = fmt.Fprintf(os.Stdout, "Creating temporary workstream for branch %q...\n", worktreeKey)
+				_, _ = fmt.Fprintf(os.Stdout, "Creating temporary cutting for branch %q...\n", worktreeKey)
 				path, err = deps.wt.Add(worktreeKey, createBranch, from)
 				if err != nil {
-					return fmt.Errorf("create workstream: %w", err)
+					return fmt.Errorf("create cutting: %w", err)
 				}
 			}
 		}
@@ -185,9 +185,9 @@ The exit code of the command is propagated to the calling shell.`,
 		// willAutoRemove decides whether this run's worktree gets the full
 		// temporary-worktree safety net (run lock, unconditional cleanup on
 		// return or signal). A freshly-created worktree always gets it; a
-		// reused existing workstream only opts in via --remove-after — without
+		// reused existing cutting only opts in via --remove-after — without
 		// it, removal is instead decided by the post-run prompt below, and a
-		// signal or crash leaves the workstream untouched rather than deleting
+		// signal or crash leaves the cutting untouched rather than deleting
 		// real, non-temporary work.
 		willAutoRemove := !reusingExisting || runRemoveAfter
 
@@ -211,7 +211,7 @@ The exit code of the command is propagated to the calling shell.`,
 		if willAutoRemove {
 			// This defer runs FIRST (registered second) — always clean up the worktree.
 			defer func() {
-				_, _ = fmt.Fprintf(os.Stdout, "Cleaning up workstream...\n")
+				_, _ = fmt.Fprintf(os.Stdout, "Cleaning up cutting...\n")
 				if removeErr := deps.wt.Remove(worktreeKey, false); removeErr != nil {
 					_, _ = fmt.Fprintf(os.Stderr, "warning: cleanup failed: %v\n", removeErr)
 				}
@@ -252,17 +252,17 @@ The exit code of the command is propagated to the calling shell.`,
 			interrupted = true
 		}
 
-		// Reused workstreams that didn't opt into --remove-after are never
+		// Reused cuttings that didn't opt into --remove-after are never
 		// touched by the defer above; decide their fate here instead, once the
 		// command has actually completed (not merely been interrupted).
 		if reusingExisting && !runRemoveAfter && !interrupted {
 			if confirmRemoval(worktreeKey) {
-				_, _ = fmt.Fprintf(os.Stdout, "Removing workstream %q...\n", worktreeKey)
+				_, _ = fmt.Fprintf(os.Stdout, "Removing cutting %q...\n", worktreeKey)
 				if removeErr := deps.wt.Remove(worktreeKey, false); removeErr != nil {
 					_, _ = fmt.Fprintf(os.Stderr, "warning: cleanup failed: %v\n", removeErr)
 				}
 			} else {
-				_, _ = fmt.Fprintf(os.Stdout, "Leaving workstream %q in place.\n", worktreeKey)
+				_, _ = fmt.Fprintf(os.Stdout, "Leaving cutting %q in place.\n", worktreeKey)
 			}
 		}
 
@@ -277,7 +277,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.Flags().StringVarP(&runBranch, "branch", "b", "", "branch to create a worktree for (created if it does not exist; reused if it does)")
 	runCmd.Flags().StringVarP(&runSource, "source", "s", "", "commit-ish to base the worktree on (default: HEAD)")
-	runCmd.Flags().BoolVarP(&runRemoveAfter, "remove-after", "r", false, "when reusing an existing --branch workstream, remove it after the command finishes without prompting")
+	runCmd.Flags().BoolVarP(&runRemoveAfter, "remove-after", "r", false, "when reusing an existing --branch cutting, remove it after the command finishes without prompting")
 	_ = runCmd.RegisterFlagCompletionFunc("branch", completeBranches)
 	_ = runCmd.RegisterFlagCompletionFunc("source", completeBranches)
 }

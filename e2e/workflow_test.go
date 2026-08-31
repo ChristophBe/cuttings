@@ -15,7 +15,7 @@ func TestWorkflow_InitNewListRemove(t *testing.T) {
 
 	requireExitCode(t, h.run("init"), 0)
 
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	afterNew := h.run("list")
 	requireExitCode(t, afterNew, 0)

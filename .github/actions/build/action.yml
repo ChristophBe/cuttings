@@ -1,5 +1,5 @@
 name: Build
-description: Compile the workstreams binary
+description: Compile the cuttings binary
 runs:
   using: composite
   steps:

@@ -16,7 +16,7 @@ func TestRun_DetachedCleansUpOnSuccess(t *testing.T) {
 	r := h.run("run", "--", "sh", "-c", "echo hello-from-run; pwd")
 	requireExitCode(t, r, 0)
 	requireContains(t, r.stdout, "hello-from-run")
-	requireContains(t, r.stdout, filepath.Join(dir, ".worktrees", "ws-run-"))
+	requireContains(t, r.stdout, filepath.Join(dir, ".worktrees", "cut-run-"))
 
 	after := worktreePaths(t, dir)
 	if len(after) != len(before) {
@@ -32,7 +32,7 @@ func TestRun_ExitCodePropagationAndCleanup(t *testing.T) {
 
 	r := h.run("run", "--", "sh", "-c", "exit 7")
 	requireExitCode(t, r, 7)
-	requireContains(t, r.stdout, "Cleaning up workstream")
+	requireContains(t, r.stdout, "Cleaning up cutting")
 
 	after := worktreePaths(t, dir)
 	if len(after) != len(before) {
@@ -63,13 +63,13 @@ func TestRun_Branch(t *testing.T) {
 func TestRun_ExistingBranch_RunsInPlace(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	before := worktreePaths(t, dir)
 
-	r := h.run("run", "--branch", "feature/foo", "--", "sh", "-c", "echo BRANCH=$WORKSTREAM_BRANCH")
+	r := h.run("run", "--branch", "feature/foo", "--", "sh", "-c", "echo BRANCH=$CUTTING_BRANCH")
 	requireExitCode(t, r, 0)
-	requireContains(t, r.stdout, "Using existing workstream")
+	requireContains(t, r.stdout, "Using existing cutting")
 	requireContains(t, r.stdout, "BRANCH=feature/foo")
 
 	after := worktreePaths(t, dir)
@@ -80,36 +80,36 @@ func TestRun_ExistingBranch_RunsInPlace(t *testing.T) {
 
 // TestRun_ExistingBranch_DefaultKeepsOnEOF verifies that with no terminal
 // attached (stdin hits immediate EOF, as with the plain run() helper), the
-// removal prompt defaults to "no" and the reused workstream survives.
+// removal prompt defaults to "no" and the reused cutting survives.
 func TestRun_ExistingBranch_DefaultKeepsOnEOF(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	r := h.run("run", "--branch", "feature/foo", "--", "true")
 	requireExitCode(t, r, 0)
-	requireContains(t, r.stdout, `Leaving workstream "feature/foo" in place`)
+	requireContains(t, r.stdout, `Leaving cutting "feature/foo" in place`)
 
 	wantPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 	if !containsPath(worktreePaths(t, dir), wantPath) {
-		t.Fatalf("expected existing workstream %s to survive the default no-answer", wantPath)
+		t.Fatalf("expected existing cutting %s to survive the default no-answer", wantPath)
 	}
 }
 
 // TestRun_ExistingBranch_PromptRemove_Yes verifies answering "y" to the
-// removal prompt removes the reused workstream after the command finishes.
+// removal prompt removes the reused cutting after the command finishes.
 func TestRun_ExistingBranch_PromptRemove_Yes(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	r := h.runWithStdin("y\n", "run", "--branch", "feature/foo", "--", "true")
 	requireExitCode(t, r, 0)
-	requireContains(t, r.stdout, `Removing workstream "feature/foo"`)
+	requireContains(t, r.stdout, `Removing cutting "feature/foo"`)
 
 	wantPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 	if containsPath(worktreePaths(t, dir), wantPath) {
-		t.Fatalf("expected existing workstream %s to be removed after confirming", wantPath)
+		t.Fatalf("expected existing cutting %s to be removed after confirming", wantPath)
 	}
 	if !branchExists(t, dir, "feature/foo") {
 		t.Fatalf("expected branch feature/foo to be preserved (only the worktree is removed)")
@@ -121,32 +121,32 @@ func TestRun_ExistingBranch_PromptRemove_Yes(t *testing.T) {
 func TestRun_ExistingBranch_PromptRemove_No(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	r := h.runWithStdin("n\n", "run", "--branch", "feature/foo", "--", "true")
 	requireExitCode(t, r, 0)
-	requireContains(t, r.stdout, `Leaving workstream "feature/foo" in place`)
+	requireContains(t, r.stdout, `Leaving cutting "feature/foo" in place`)
 
 	wantPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 	if !containsPath(worktreePaths(t, dir), wantPath) {
-		t.Fatalf("expected existing workstream %s to survive an explicit no", wantPath)
+		t.Fatalf("expected existing cutting %s to survive an explicit no", wantPath)
 	}
 }
 
 // TestRun_ExistingBranch_RemoveAfterFlag verifies --remove-after removes the
-// reused workstream without ever prompting, even with no stdin available.
+// reused cutting without ever prompting, even with no stdin available.
 func TestRun_ExistingBranch_RemoveAfterFlag(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	r := h.run("run", "--branch", "feature/foo", "--remove-after", "--", "true")
 	requireExitCode(t, r, 0)
-	requireNotContains(t, r.stdout, "Remove workstream")
+	requireNotContains(t, r.stdout, "Remove cutting")
 
 	wantPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 	if containsPath(worktreePaths(t, dir), wantPath) {
-		t.Fatalf("expected existing workstream %s to be removed via --remove-after", wantPath)
+		t.Fatalf("expected existing cutting %s to be removed via --remove-after", wantPath)
 	}
 }
 
@@ -155,32 +155,32 @@ func TestRun_ExistingBranch_RemoveAfterFlag(t *testing.T) {
 func TestRun_ExistingBranch_RemoveAfterShorthand(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	r := h.run("run", "--branch", "feature/foo", "-r", "--", "true")
 	requireExitCode(t, r, 0)
 
 	wantPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 	if containsPath(worktreePaths(t, dir), wantPath) {
-		t.Fatalf("expected existing workstream %s to be removed via -r", wantPath)
+		t.Fatalf("expected existing cutting %s to be removed via -r", wantPath)
 	}
 }
 
 // TestRun_ExistingBranch_CommandFailure_StillPrompts verifies the removal
-// prompt still runs when the command inside the reused workstream fails,
+// prompt still runs when the command inside the reused cutting fails,
 // and that the command's exit code is still propagated.
 func TestRun_ExistingBranch_CommandFailure_StillPrompts(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
-	newWorkstream(t, h, "feature/foo")
+	newCutting(t, h, "feature/foo")
 
 	r := h.runWithStdin("y\n", "run", "--branch", "feature/foo", "--", "sh", "-c", "exit 7")
 	requireExitCode(t, r, 7)
-	requireContains(t, r.stdout, `Removing workstream "feature/foo"`)
+	requireContains(t, r.stdout, `Removing cutting "feature/foo"`)
 
 	wantPath := filepath.Join(dir, ".worktrees", "feature", "foo")
 	if containsPath(worktreePaths(t, dir), wantPath) {
-		t.Fatalf("expected existing workstream %s to be removed after confirming despite command failure", wantPath)
+		t.Fatalf("expected existing cutting %s to be removed after confirming despite command failure", wantPath)
 	}
 }
 
@@ -200,7 +200,7 @@ func TestRun_EnvVars_Detached(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
 
-	r := h.run("run", "--", "sh", "-c", "echo BRANCH=$WORKSTREAM_BRANCH")
+	r := h.run("run", "--", "sh", "-c", "echo BRANCH=$CUTTING_BRANCH")
 	requireExitCode(t, r, 0)
 	requireContains(t, r.stdout, "BRANCH=main")
 }
@@ -209,7 +209,7 @@ func TestRun_EnvVars_Branch(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
 
-	r := h.run("run", "--branch", "feature/env", "--", "sh", "-c", "echo BRANCH=$WORKSTREAM_BRANCH")
+	r := h.run("run", "--branch", "feature/env", "--", "sh", "-c", "echo BRANCH=$CUTTING_BRANCH")
 	requireExitCode(t, r, 0)
 	requireContains(t, r.stdout, "BRANCH=feature/env")
 }

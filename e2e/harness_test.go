@@ -11,14 +11,14 @@ import (
 	"testing"
 )
 
-// result captures the outcome of one workstreams invocation.
+// result captures the outcome of one cuttings invocation.
 type result struct {
 	stdout   string
 	stderr   string
 	exitCode int
 }
 
-// harness invokes the compiled workstreams binary as a subprocess with a
+// harness invokes the compiled cuttings binary as a subprocess with a
 // fixed working directory and a minimal, explicit environment, so tests are
 // hermetic regardless of the developer's or CI runner's real environment.
 type harness struct {
@@ -29,7 +29,7 @@ type harness struct {
 }
 
 // newHarness returns a harness rooted at dir, with its own isolated $HOME so
-// no real ~/.gitconfig or ~/.workstreams* leaks into the test.
+// no real ~/.gitconfig or ~/.cuttings* leaks into the test.
 func newHarness(t *testing.T, dir string) *harness {
 	t.Helper()
 	return &harness{
@@ -41,7 +41,7 @@ func newHarness(t *testing.T, dir string) *harness {
 }
 
 // withEnv returns a copy of h with key=value added to the subprocess
-// environment (e.g. SHELL, or a WORKSTREAMS_* override).
+// environment (e.g. SHELL, or a CUTTINGS_* override).
 func (h *harness) withEnv(key, value string) *harness {
 	env := make(map[string]string, len(h.env)+1)
 	for k, v := range h.env {
@@ -60,7 +60,7 @@ func (h *harness) buildEnv() []string {
 	return env
 }
 
-// run invokes the workstreams binary with args and blocks until it exits,
+// run invokes the cuttings binary with args and blocks until it exits,
 // returning its result. It never fails the test on a non-zero exit code —
 // callers assert that explicitly, since a non-zero exit is often the
 // expected outcome. Use start instead when the test needs to interact with
@@ -96,7 +96,7 @@ func (h *harness) runWithStdin(stdin string, args ...string) result {
 	return result{stdout: stdout.String(), stderr: stderr.String(), exitCode: exitCode}
 }
 
-// asyncRun is a workstreams invocation started in the background via
+// asyncRun is a cuttings invocation started in the background via
 // harness.start, so the test can interact with it (typically: send a
 // signal) before collecting its result with wait.
 type asyncRun struct {
@@ -106,7 +106,7 @@ type asyncRun struct {
 	stderr *bytes.Buffer
 }
 
-// start begins running the workstreams binary with args in the background
+// start begins running the cuttings binary with args in the background
 // and returns immediately, without waiting for it to exit.
 func (h *harness) start(args ...string) *asyncRun {
 	h.t.Helper()

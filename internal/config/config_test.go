@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ChristophBe/workstreams/internal/config"
+	"github.com/ChristophBe/cuttings/internal/config"
 )
 
 func TestLoad_NoFile(t *testing.T) {
@@ -75,9 +75,9 @@ func TestLoad_EnvOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Setenv("WORKSTREAMS_WORKTREES_DIR", ".from-env")
-	t.Setenv("WORKSTREAMS_DEFAULT_BRANCH", "develop")
-	t.Setenv("WORKSTREAMS_RUN_CLEANUP_ON_SIGNAL", "false")
+	t.Setenv("CUTTINGS_WORKTREES_DIR", ".from-env")
+	t.Setenv("CUTTINGS_DEFAULT_BRANCH", "develop")
+	t.Setenv("CUTTINGS_RUN_CLEANUP_ON_SIGNAL", "false")
 
 	cfg, err := config.Load(dir)
 	if err != nil {
