@@ -1,12 +1,12 @@
-/* Green accent, replacing Hextra's default blue primary hue. */
+/* Greenish-teal accent, replacing Hextra's default blue primary hue. */
 :root {
-  --primary-hue: 142deg;
+  --primary-hue: 168deg;
   --primary-saturation: 90%;
   --primary-lightness: 38%;
 }
 
 .dark {
-  --primary-hue: 142deg;
+  --primary-hue: 168deg;
   --primary-saturation: 85%;
   --primary-lightness: 55%;
 }
