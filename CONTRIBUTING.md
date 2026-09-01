@@ -145,8 +145,8 @@ any `v*` tag push, and via manual dispatch. Its jobs run in sequence:
    - generates an SPDX SBOM per archive/package (`sboms`, via `syft`);
    - cosign-signs `checksums.txt` keylessly using the workflow's GitHub OIDC
      token (`signs`) — no key material is stored anywhere;
-   - pushes an updated Homebrew Cask to `cuttings/homebrew-tap` and a Scoop
-     manifest to `cuttings/scoop-bucket`, using the `TAP_GITHUB_TOKEN` repo
+   - pushes an updated Homebrew Cask to `ChristophBe/homebrew-tap` and a Scoop
+     manifest to `ChristophBe/scoop-bucket`, using the `TAP_GITHUB_TOKEN` repo
      secret (`homebrew_casks` / `scoops`).
 4. **`attest-build-provenance`** — after GoReleaser, publishes a GitHub build
    provenance attestation for the binaries so `gh attestation verify` can
@@ -160,13 +160,13 @@ version bump, so nothing gets tagged or released.
 | Secret             | Used for                                          | How to obtain                                                                                              |
 |---------------------|----------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
 | `GITHUB_TOKEN`      | Tagging, GitHub Release publishing                 | Provided automatically by GitHub Actions.                                                                     |
-| `TAP_GITHUB_TOKEN`  | Pushing to `cuttings/homebrew-tap` and `cuttings/scoop-bucket` | A fine-grained PAT with Contents: read/write on those two repos, added as a repo secret. |
+| `TAP_GITHUB_TOKEN`  | Pushing to `ChristophBe/homebrew-tap` and `ChristophBe/scoop-bucket` | A fine-grained PAT with Contents: read/write on those two repos, added as a repo secret. |
 
 Cosign signing, SBOM generation, and build-provenance attestation need no
 secrets — they authenticate via the workflow's own GitHub Actions OIDC token
 (`id-token: write` / `attestations: write` permissions on the job).
 
-Until `cuttings/homebrew-tap` and `cuttings/scoop-bucket` exist and
+Until `ChristophBe/homebrew-tap` and `ChristophBe/scoop-bucket` exist and
 `TAP_GITHUB_TOKEN` is set, the `homebrew_casks`/`scoops` publish steps will
 fail; everything else in the release (archives, packages, signing, SBOMs,
 attestations) is unaffected.

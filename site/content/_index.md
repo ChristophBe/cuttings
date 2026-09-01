@@ -273,14 +273,14 @@ Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`,
 Works on macOS and Linux.
 
 ```bash
-brew install cuttings/tap/cuttings
+brew install christophbe/tap/cuttings
 ```
 {{< /tab >}}
 {{< tab name="Scoop" >}}
 Windows.
 
 ```powershell
-scoop bucket add cuttings https://github.com/cuttings/scoop-bucket
+scoop bucket add cuttings https://github.com/ChristophBe/scoop-bucket
 scoop install cuttings
 ```
 {{< /tab >}}
