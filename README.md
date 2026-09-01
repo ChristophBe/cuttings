@@ -31,7 +31,35 @@ history and objects.
 
 ## Installation
 
-### Download pre-built binary (recommended)
+### Homebrew (macOS/Linux)
+
+```bash
+brew install cuttings/tap/cuttings
+```
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add cuttings https://github.com/cuttings/scoop-bucket
+scoop install cuttings
+```
+
+### Linux packages (.deb / .rpm / .apk)
+
+`.deb`, `.rpm`, and `.apk` packages are attached to every [GitHub Release](https://github.com/ChristophBe/cuttings/releases/latest):
+
+```bash
+# Debian / Ubuntu
+sudo dpkg -i cuttings_linux_amd64.deb
+
+# Fedora / RHEL
+sudo rpm -i cuttings_linux_amd64.rpm
+
+# Alpine
+sudo apk add --allow-untrusted cuttings_linux_amd64.apk
+```
+
+### Download pre-built binary
 
 Download the latest release for your platform from the [GitHub Releases page](https://github.com/ChristophBe/cuttings/releases/latest), extract the archive, and move the binary to a directory on your `PATH`:
 
@@ -55,6 +83,31 @@ go install github.com/ChristophBe/cuttings@latest
 git clone https://github.com/ChristophBe/cuttings.git
 cd cuttings
 make install
+```
+
+### Verifying a release
+
+Every release is signed and comes with an SBOM and a GitHub build provenance attestation, so you can verify what you downloaded was actually built by this repo's CI from the matching source tag, without trusting the release page alone.
+
+**Checksums are cosign-signed** (keyless, via GitHub OIDC/Sigstore — no key to trust in advance):
+
+```bash
+# Download cuttings_checksums.txt, cuttings_checksums.txt.sigstore.json, and your archive from the release
+cosign verify-blob \
+  --bundle cuttings_checksums.txt.sigstore.json \
+  --certificate-identity-regexp 'https://github.com/ChristophBe/cuttings/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  cuttings_checksums.txt
+
+sha256sum -c cuttings_checksums.txt --ignore-missing
+```
+
+**SBOMs** (`*.sbom.json`, SPDX format) are attached to the release alongside each archive/package.
+
+**GitHub build provenance attestations** let you verify a binary was built by this repo's release workflow, using the `gh` CLI:
+
+```bash
+gh attestation verify cuttings_linux_amd64.tar.gz --owner ChristophBe
 ```
 
 ## Releasing

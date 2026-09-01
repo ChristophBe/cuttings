@@ -32,6 +32,7 @@ go.work.sum
 
 # Build output
 bin/
+dist/
 site/public/
 site/.hugo_build.lock
 site/resources/

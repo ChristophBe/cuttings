@@ -134,14 +134,42 @@ any `v*` tag push, and via manual dispatch. Its jobs run in sequence:
    (Conventional Commits → semver: `feat` → minor, `fix`/`perf` → patch,
    `BREAKING CHANGE:` → major). If a release is warranted, it runs
    `make tag VERSION=vX.Y.Z`, pushing the new tag.
-3. **`goreleaser`** — publishes the release via GoReleaser. It runs either
-   right after `tag` creates a new tag (same workflow run — no cross-workflow
-   dispatch needed) or when a tag is pushed directly (e.g. a manual
-   `make tag`), in which case `checks` above serves as the safety net since a
-   direct tag push isn't otherwise CI-gated.
+3. **`goreleaser`** — publishes the release via GoReleaser (`.goreleaser.yaml`).
+   It runs either right after `tag` creates a new tag (same workflow run — no
+   cross-workflow dispatch needed) or when a tag is pushed directly (e.g. a
+   manual `make tag`), in which case `checks` above serves as the safety net
+   since a direct tag push isn't otherwise CI-gated. This job:
+   - builds and archives binaries for linux/darwin/windows, as before;
+   - builds `.deb`/`.rpm`/`.apk` packages (`nfpm`) and attaches them to the
+     GitHub Release;
+   - generates an SPDX SBOM per archive/package (`sboms`, via `syft`);
+   - cosign-signs `checksums.txt` keylessly using the workflow's GitHub OIDC
+     token (`signs`) — no key material is stored anywhere;
+   - pushes an updated Homebrew Cask to `cuttings/homebrew-tap` and a Scoop
+     manifest to `cuttings/scoop-bucket`, using the `TAP_GITHUB_TOKEN` repo
+     secret (`homebrew_casks` / `scoops`).
+4. **`attest-build-provenance`** — after GoReleaser, publishes a GitHub build
+   provenance attestation for the binaries so `gh attestation verify` can
+   confirm they were built by this workflow from the matching source tag.
 
 Commits that are entirely `docs`/`chore`/`test`/`refactor` don't trigger a
 version bump, so nothing gets tagged or released.
+
+#### Required repository secrets
+
+| Secret             | Used for                                          | How to obtain                                                                                              |
+|---------------------|----------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `GITHUB_TOKEN`      | Tagging, GitHub Release publishing                 | Provided automatically by GitHub Actions.                                                                     |
+| `TAP_GITHUB_TOKEN`  | Pushing to `cuttings/homebrew-tap` and `cuttings/scoop-bucket` | A fine-grained PAT with Contents: read/write on those two repos, added as a repo secret. |
+
+Cosign signing, SBOM generation, and build-provenance attestation need no
+secrets — they authenticate via the workflow's own GitHub Actions OIDC token
+(`id-token: write` / `attestations: write` permissions on the job).
+
+Until `cuttings/homebrew-tap` and `cuttings/scoop-bucket` exist and
+`TAP_GITHUB_TOKEN` is set, the `homebrew_casks`/`scoops` publish steps will
+fail; everything else in the release (archives, packages, signing, SBOMs,
+attestations) is unaffected.
 
 ---
 
