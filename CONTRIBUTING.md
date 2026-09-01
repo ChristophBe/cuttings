@@ -147,7 +147,13 @@ any `v*` tag push, and via manual dispatch. Its jobs run in sequence:
      token (`signs`) — no key material is stored anywhere;
    - pushes an updated Homebrew Cask to `cuttings-cli/homebrew-tap` and a Scoop
      manifest to `cuttings-cli/scoop-bucket`, using the `TAP_GITHUB_TOKEN` repo
-     secret (`homebrew_casks` / `scoops`).
+     secret (`homebrew_casks` / `scoops`). The macOS binaries aren't
+     Apple-notarized, so the Cask carries a `postflight` hook
+     (`homebrew_casks[].hooks.post.install` in `.goreleaser.yaml`) that strips
+     the `com.apple.quarantine` attribute on install/upgrade — without it,
+     Gatekeeper blocks the binary as "cannot be verified." This is a
+     workaround, not a real fix; it doesn't help users who download the
+     archive directly instead of going through `brew`.
 4. **`attest-build-provenance`** — after GoReleaser, publishes a GitHub build
    provenance attestation for the binaries so `gh attestation verify` can
    confirm they were built by this workflow from the matching source tag.

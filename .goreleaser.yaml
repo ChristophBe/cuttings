@@ -81,6 +81,12 @@ homebrew_casks:
     homepage: https://github.com/ChristophBe/cuttings
     description: >-
       Manages git worktrees as isolated development environments.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/cuttings"]
+          end
 
 scoops:
   - repository:

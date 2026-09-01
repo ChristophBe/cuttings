@@ -71,6 +71,17 @@ mv cuttings /usr/local/bin/
 
 Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`.
 
+**macOS:** the binary isn't Apple-notarized, so a directly downloaded archive keeps the
+quarantine flag macOS applies to downloaded files, and Gatekeeper will refuse to run it. Clear
+the flag before running:
+
+```bash
+xattr -d com.apple.quarantine cuttings
+```
+
+The Homebrew Cask (below) does this automatically on install/upgrade, so this step is only
+needed when downloading the archive directly.
+
 ### Via Go install
 
 ```bash
@@ -109,6 +120,10 @@ sha256sum -c cuttings_checksums.txt --ignore-missing
 ```bash
 gh attestation verify cuttings_linux_amd64.tar.gz --owner ChristophBe
 ```
+
+These prove the binary was built by this repo's CI from the tagged source — they don't cover
+Apple notarization. The macOS binaries are unsigned; see the quarantine note under
+[Download pre-built binary](#download-pre-built-binary) if Gatekeeper blocks a direct download.
 
 ## Releasing
 
