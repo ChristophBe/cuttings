@@ -7,14 +7,14 @@ before:
     - go mod tidy
 
 builds:
-  - binary: cuttings
+  - id: default
+    binary: cuttings
     env:
       - CGO_ENABLED=0
     flags:
       - -trimpath
     goos:
       - linux
-      - darwin
       - windows
     goarch:
       - amd64
@@ -22,6 +22,23 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+    ldflags:
+      - -s -w
+      # same variable paths as Makefile LDFLAGS
+      - -X 'github.com/ChristophBe/cuttings/cmd.Version={{.Version}}'
+      - -X 'github.com/ChristophBe/cuttings/cmd.BuildTime={{.Date}}'
+
+  - id: darwin
+    binary: cuttings
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
     ldflags:
       - -s -w
       # same variable paths as Makefile LDFLAGS
@@ -69,6 +86,23 @@ signs:
       - "--yes"
     artifacts: checksum
     output: true
+
+  # macOS binaries are signed with a Developer ID Application certificate and
+  # notarized by Apple via quill (https://github.com/anchore/quill), which
+  # cross-signs from Linux CI without needing a macOS runner or Xcode. This
+  # runs on the raw binary before archiving so the released tar.gz already
+  # contains a signed, notarized executable. Credentials come from the
+  # QUILL_* env vars set in .github/workflows/release.yml — see
+  # CONTRIBUTING.md's Release process section.
+  - id: darwin
+    ids:
+      - darwin
+    artifacts: binary
+    cmd: quill
+    args:
+      - sign-and-notarize
+      - "${artifact}"
+      - --dry-run={{ .IsSnapshot }}
 
 homebrew_casks:
   - name: cuttings

@@ -71,6 +71,10 @@ mv cuttings /usr/local/bin/
 
 Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`.
 
+macOS binaries are signed with a Developer ID certificate and notarized by Apple, so
+Gatekeeper won't block them — the first run needs internet access so macOS can check the
+notarization ticket online.
+
 ### Via Go install
 
 ```bash

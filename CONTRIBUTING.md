@@ -140,6 +140,11 @@ any `v*` tag push, and via manual dispatch. Its jobs run in sequence:
    manual `make tag`), in which case `checks` above serves as the safety net
    since a direct tag push isn't otherwise CI-gated. This job:
    - builds and archives binaries for linux/darwin/windows, as before;
+   - signs the `darwin` binaries with a Developer ID Application certificate
+     and submits them to Apple's notary service via
+     [`quill`](https://github.com/anchore/quill) — cross-signing from the
+     Linux runner, no macOS runner or Xcode needed. This is what keeps
+     Gatekeeper from blocking downloaded macOS binaries;
    - builds `.deb`/`.rpm`/`.apk` packages (`nfpm`) and attaches them to the
      GitHub Release;
    - generates an SPDX SBOM per archive/package (`sboms`, via `syft`);
@@ -157,10 +162,15 @@ version bump, so nothing gets tagged or released.
 
 #### Required repository secrets
 
-| Secret             | Used for                                          | How to obtain                                                                                              |
-|---------------------|----------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
-| `GITHUB_TOKEN`      | Tagging, GitHub Release publishing                 | Provided automatically by GitHub Actions.                                                                     |
-| `TAP_GITHUB_TOKEN`  | Pushing to `cuttings-cli/homebrew-tap` and `cuttings-cli/scoop-bucket` | A fine-grained PAT with Contents: read/write on those two repos, added as a repo secret. |
+| Secret                | Used for                                                               | How to obtain                                                                             |
+|------------------------|-------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `GITHUB_TOKEN`         | Tagging, GitHub Release publishing                                     | Provided automatically by GitHub Actions.                                                    |
+| `TAP_GITHUB_TOKEN`     | Pushing to `cuttings-cli/homebrew-tap` and `cuttings-cli/scoop-bucket`  | A fine-grained PAT with Contents: read/write on those two repos, added as a repo secret.     |
+| `QUILL_SIGN_P12`       | Signing `darwin` binaries                                               | base64 of a Developer ID Application certificate + private key, exported as `.p12`.          |
+| `QUILL_SIGN_PASSWORD`  | Signing `darwin` binaries                                               | The `.p12` export password.                                                                  |
+| `QUILL_NOTARY_KEY`     | Notarizing `darwin` binaries                                            | base64 of an App Store Connect API `.p8` private key scoped for notarization.                |
+| `QUILL_NOTARY_KEY_ID`  | Notarizing `darwin` binaries                                            | The App Store Connect API key's ID.                                                          |
+| `QUILL_NOTARY_ISSUER`  | Notarizing `darwin` binaries                                            | The App Store Connect issuer ID.                                                             |
 
 Cosign signing, SBOM generation, and build-provenance attestation need no
 secrets — they authenticate via the workflow's own GitHub Actions OIDC token

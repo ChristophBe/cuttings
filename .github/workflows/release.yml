@@ -80,6 +80,9 @@ jobs:
       - name: Install syft
         uses: anchore/sbom-action/download-syft@v0
 
+      - name: Install quill
+        run: curl -sSfL https://get.anchore.io/quill | sudo sh -s -- -b /usr/local/bin
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
@@ -88,6 +91,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          # macOS Developer ID signing + notarization via quill — see
+          # CONTRIBUTING.md's Release process section for what these are
+          # and how to rotate them.
+          QUILL_SIGN_P12: ${{ secrets.QUILL_SIGN_P12 }}
+          QUILL_SIGN_PASSWORD: ${{ secrets.QUILL_SIGN_PASSWORD }}
+          QUILL_NOTARY_KEY: ${{ secrets.QUILL_NOTARY_KEY }}
+          QUILL_NOTARY_KEY_ID: ${{ secrets.QUILL_NOTARY_KEY_ID }}
+          QUILL_NOTARY_ISSUER: ${{ secrets.QUILL_NOTARY_ISSUER }}
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
