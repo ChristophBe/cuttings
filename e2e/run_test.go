@@ -5,7 +5,10 @@ package e2e
 import (
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestRun_DetachedCleansUpOnSuccess(t *testing.T) {
@@ -327,4 +330,70 @@ func TestRun_InPlace_RejectsRemoveAfterFlag(t *testing.T) {
 	requireExitCode(t, r, 1)
 	requireContains(t, r.stderr, "in-place")
 	requireContains(t, r.stderr, "remove-after")
+}
+
+// TestRun_InPlace_SignalTerminatesWithShellExitCode verifies that a real
+// SIGINT delivered to `cuttings run --in-place` while its command is
+// executing still reports the shell exit-code convention (128+signum), via
+// runInPlaceCommand's own signal-aware wiring in cmd/run.go — there is no
+// worktree to clean up here, unlike TestRun_SignalCleanup_SIGINT.
+func TestRun_InPlace_SignalTerminatesWithShellExitCode(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	// The marker lives outside the worktree, matching the pattern in
+	// TestRun_ExistingBranch_SignalLeavesInPlace.
+	marker := filepath.Join(t.TempDir(), "started")
+	proc := h.start("run", "--in-place", "--", "sh", "-c", "touch "+marker+"; sleep 30")
+	waitForFile(t, marker, 5*time.Second)
+	proc.signal(syscall.SIGINT)
+	r := proc.wait()
+
+	requireExitCode(t, r, 130) // 128 + SIGINT(2)
+}
+
+// TestRun_InPlace_CleanupOnSignalDisabled_UsesDefaultDisposition verifies
+// that with run_cleanup_on_signal=false, --in-place installs no signal
+// handling either (mirrors TestRun_CleanupOnSignalDisabled_SignalLeavesOrphan
+// for the main path) — a SIGINT hits Go's default, uncaught disposition and
+// terminates the process immediately rather than being translated into the
+// 128+signum shell convention.
+func TestRun_InPlace_CleanupOnSignalDisabled_UsesDefaultDisposition(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir).withEnv("CUTTINGS_RUN_CLEANUP_ON_SIGNAL", "false")
+
+	marker := filepath.Join(t.TempDir(), "started")
+	proc := h.start("run", "--in-place", "--", "sh", "-c", "touch "+marker+"; sleep 30")
+	waitForFile(t, marker, 5*time.Second)
+	proc.signal(syscall.SIGINT)
+	r := proc.wait()
+
+	if r.exitCode != signalTerminatedExitCode {
+		t.Fatalf("exit code = %d, want %d (signal-terminated)\nstdout:\n%s", r.exitCode, signalTerminatedExitCode, r.stdout)
+	}
+}
+
+// TestRun_InPlace_FromSubdirectory_ResolvesWorktreeRoot verifies that
+// --in-place resolves CUTTING_PATH to the worktree root (via
+// deps.wt.RepoRoot(), backed by `git rev-parse --show-toplevel`) even when
+// cuttings is invoked from a nested subdirectory — the motivating case being
+// a dev server started from e.g. a "frontend/" subfolder of a worktree.
+func TestRun_InPlace_FromSubdirectory_ResolvesWorktreeRoot(t *testing.T) {
+	dir := initRepo(t)
+	subdir := filepath.Join(dir, "sub", "nested")
+	if err := os.MkdirAll(subdir, 0o750); err != nil {
+		t.Fatalf("mkdir subdir: %v", err)
+	}
+
+	h := newHarness(t, subdir)
+	r := h.run("run", "--in-place", "--", "sh", "-c", "pwd")
+	requireExitCode(t, r, 0)
+
+	// An exact-equality check (not requireContains) matters here: subdir has
+	// dir as a path prefix, so a substring check would pass even if pwd
+	// wrongly reported the subdirectory instead of the worktree root.
+	got := strings.TrimSpace(r.stdout)
+	if got != dir {
+		t.Fatalf("pwd = %q, want worktree root %q (not the subdirectory cuttings was invoked from)", got, dir)
+	}
 }
