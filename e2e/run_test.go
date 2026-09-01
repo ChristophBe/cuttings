@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -230,4 +231,100 @@ func TestRun_ShorthandBranchAndSource(t *testing.T) {
 	if !branchExists(t, dir, "feature/short") {
 		t.Fatalf("expected branch feature/short to be created via -b")
 	}
+}
+
+// --- --in-place ---
+
+func TestRun_InPlace_RunsInCurrentWorktree_NoNewWorktreeCreated(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	before := worktreePaths(t, dir)
+
+	r := h.run("run", "--in-place", "--", "sh", "-c", "echo BRANCH=$CUTTING_BRANCH; pwd")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stdout, "BRANCH=main")
+	requireContains(t, r.stdout, dir)
+
+	after := worktreePaths(t, dir)
+	if len(after) != len(before) {
+		t.Fatalf("expected no new worktree to be created: before=%v after=%v", before, after)
+	}
+}
+
+// TestRun_InPlace_Shorthand verifies -i is equivalent to --in-place.
+func TestRun_InPlace_Shorthand(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	before := worktreePaths(t, dir)
+
+	r := h.run("run", "-i", "--", "sh", "-c", "echo BRANCH=$CUTTING_BRANCH")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stdout, "BRANCH=main")
+
+	after := worktreePaths(t, dir)
+	if len(after) != len(before) {
+		t.Fatalf("expected no new worktree to be created: before=%v after=%v", before, after)
+	}
+}
+
+// TestRun_InPlace_ReusesDirtyCuttingWithoutCleaningUp verifies --in-place runs
+// directly inside an existing, uncommitted-changes cutting (simulating the
+// motivating use case: a dev server started via --in-place alongside a second
+// shell actively editing the same files) and leaves it untouched afterward.
+func TestRun_InPlace_ReusesDirtyCuttingWithoutCleaningUp(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+	newCutting(t, h, "feature/foo")
+
+	cuttingPath := filepath.Join(dir, ".worktrees", "feature", "foo")
+	if err := os.WriteFile(filepath.Join(cuttingPath, "dirty.txt"), []byte("uncommitted\n"), 0o600); err != nil {
+		t.Fatalf("write dirty.txt: %v", err)
+	}
+
+	before := worktreePaths(t, dir)
+
+	cuttingHarness := newHarness(t, cuttingPath)
+	r := cuttingHarness.run("run", "--in-place", "--", "sh", "-c", "echo BRANCH=$CUTTING_BRANCH")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stdout, "BRANCH=feature/foo")
+
+	after := worktreePaths(t, dir)
+	if len(after) != len(before) {
+		t.Fatalf("expected no worktree to be created or removed: before=%v after=%v", before, after)
+	}
+	if _, err := os.Stat(filepath.Join(cuttingPath, "dirty.txt")); err != nil {
+		t.Fatalf("expected uncommitted change to survive --in-place: %v", err)
+	}
+}
+
+func TestRun_InPlace_RejectsBranchFlag(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	r := h.run("run", "--in-place", "--branch", "feature/foo", "--", "true")
+	requireExitCode(t, r, 1)
+	requireContains(t, r.stderr, "in-place")
+	requireContains(t, r.stderr, "branch")
+}
+
+func TestRun_InPlace_RejectsSourceFlag(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	r := h.run("run", "--in-place", "--source", "main", "--", "true")
+	requireExitCode(t, r, 1)
+	requireContains(t, r.stderr, "in-place")
+	requireContains(t, r.stderr, "source")
+}
+
+func TestRun_InPlace_RejectsRemoveAfterFlag(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	r := h.run("run", "--in-place", "--remove-after", "--", "true")
+	requireExitCode(t, r, 1)
+	requireContains(t, r.stderr, "in-place")
+	requireContains(t, r.stderr, "remove-after")
 }
