@@ -37,6 +37,61 @@ archives:
           - zip
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
 
+nfpms:
+  - id: cuttings
+    package_name: cuttings
+    formats:
+      - deb
+      - rpm
+      - apk
+    vendor: Christoph Becker
+    maintainer: "Christoph Becker <post@christophb.de>"
+    homepage: https://github.com/ChristophBe/cuttings
+    description: >-
+      Manages git worktrees as isolated development environments.
+    license: MIT
+    bindir: /usr/bin
+
+sboms:
+  - id: archive
+    artifacts: archive
+  - id: package
+    artifacts: package
+
+signs:
+  - id: checksums
+    cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    args:
+      - "sign-blob"
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+    output: true
+
+homebrew_casks:
+  - name: cuttings
+    binaries:
+      - cuttings
+    repository:
+      owner: cuttings
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/ChristophBe/cuttings
+    description: >-
+      Manages git worktrees as isolated development environments.
+
+scoops:
+  - repository:
+      owner: cuttings
+      name: scoop-bucket
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/ChristophBe/cuttings
+    description: >-
+      Manages git worktrees as isolated development environments.
+    license: MIT
+
 changelog:
   sort: asc
   filters:

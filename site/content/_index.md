@@ -269,6 +269,36 @@ Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`,
 
 <div class="hx:mt-4"><a href="https://github.com/ChristophBe/cuttings/releases/latest" class="not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200" target="_blank" rel="noreferrer">Download the latest release</a></div>
 {{< /tab >}}
+{{< tab name="Homebrew" >}}
+Works on macOS and Linux.
+
+```bash
+brew install cuttings/tap/cuttings
+```
+{{< /tab >}}
+{{< tab name="Scoop" >}}
+Windows.
+
+```powershell
+scoop bucket add cuttings https://github.com/cuttings/scoop-bucket
+scoop install cuttings
+```
+{{< /tab >}}
+{{< tab name="Linux packages" >}}
+`.deb`, `.rpm`, and `.apk` packages are attached to every
+[GitHub Release](https://github.com/ChristophBe/cuttings/releases/latest).
+
+```bash
+# Debian / Ubuntu
+sudo dpkg -i cuttings_linux_amd64.deb
+
+# Fedora / RHEL
+sudo rpm -i cuttings_linux_amd64.rpm
+
+# Alpine
+sudo apk add --allow-untrusted cuttings_linux_amd64.apk
+```
+{{< /tab >}}
 {{< tab name="go install" >}}
 Requires [Go](https://golang.org/doc/install). This fetches the module,
 compiles it, and installs the binary into `$(go env GOPATH)/bin` — make sure
