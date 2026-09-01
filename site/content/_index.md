@@ -164,6 +164,13 @@ tool, human or AI, to reload context.
 in a single command that creates the isolated directory *and* drops you
 straight into a shell inside it.
 
+In horticulture, a *cutting* is a piece taken from a plant that, once placed
+in new soil, roots and grows into its own independent plant — while still
+sharing the same genetic material as the parent. A `cuttings` worktree works
+the same way: it's taken from the main repository and grows independently in
+its own directory and shell session, all while sharing the same underlying
+git history and objects.
+
 <div class="hx:mb-8"></div>
 
 {{< hextra/feature-grid cols="3" >}}
@@ -384,7 +391,7 @@ worktree to cleaning it back up again:
 
 <div class="command-cards">
 
-<div class="command-card" style="--command-hue: 189">
+<div class="command-card" style="--command-hue: 142">
 <div class="command-card-text">
 <div class="command-card-header">{{< icon name="plus-circle" attributes="height=20" >}}<span class="command-card-title">New</span></div>
 

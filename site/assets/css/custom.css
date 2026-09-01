@@ -1,17 +1,21 @@
-/* Teal/cyan accent, replacing Hextra's default blue primary hue. */
+/* Green accent, replacing Hextra's default blue primary hue. */
 :root {
-  --primary-hue: 189deg;
+  --primary-hue: 142deg;
   --primary-saturation: 90%;
   --primary-lightness: 38%;
 }
 
 .dark {
-  --primary-hue: 189deg;
+  --primary-hue: 142deg;
   --primary-saturation: 85%;
   --primary-lightness: 55%;
 }
 
 /* Soft decorative glow behind the hero, using the same accent hue. */
+.hero-wrap {
+  overflow: hidden;
+}
+
 .hero-glow {
   position: absolute;
   top: -6rem;
@@ -349,6 +353,13 @@ main a:not([class]) {
 /* Each command's terminal is a short, natural-height demo (1-2 lines) —
    larger type and a soft shadow for a bit of depth against the card it's
    now nested inside, same treatment as the hero's featured terminal. */
+/* Without this, the grid track sizes to the terminal's unwrapped code
+   content (grid items default to a content-based automatic minimum size),
+   letting long commands push the card past the viewport on mobile. */
+.command-card-terminal {
+  min-width: 0;
+}
+
 .command-card-terminal .hextra-code-block {
   font-size: 1rem;
 }
