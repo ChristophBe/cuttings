@@ -11,9 +11,15 @@
   --primary-lightness: 55%;
 }
 
-/* Soft decorative glow behind the hero, using the same accent hue. */
+/* Soft decorative glow behind the hero, using the same accent hue.
+   overflow-x/-y split (not the overflow shorthand): .hero-glow's top:-6rem
+   deliberately bleeds above this box so its radial gradient fades out
+   naturally instead of ending in a hard edge — clipping only the x-axis
+   (still needed since the glow is max-width:150vw, wider than most
+   viewports) leaves that vertical bleed visible. */
 .hero-wrap {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .hero-glow {
@@ -226,6 +232,17 @@ main a:not([class]) {
 
 .dark main a:not([class]) {
   color: hsl(var(--primary-hue) var(--primary-saturation) calc(var(--primary-lightness) + 15%));
+}
+
+/* CTA buttons (hero-button shortcode + hand-styled equivalents) keep white
+   text unconditionally, but dark mode's brighter --primary-lightness (for
+   link/glow visibility elsewhere) also lightens this bg to ~50% lightness,
+   dropping white-on-bg contrast to ~1.55:1. Dark text instead clears
+   WCAG AA (>7:1) at this background lightness. hx:bg-primary-600 has no
+   other use on the site, so this is safe to target directly rather than
+   editing the theme shortcode's markup (not vendored in this repo). */
+.dark .hx\:bg-primary-600 {
+  color: hsl(var(--primary-hue) var(--primary-saturation) 12%);
 }
 
 /* Responsive column count for the "Built for parallel AI coding agents"
