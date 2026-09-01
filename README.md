@@ -13,6 +13,14 @@ When working with AI coding assistants (or simply juggling multiple features), y
 
 `cuttings` solves this by wrapping git worktrees with a single command that creates the isolated directory *and* drops you into a shell inside it.
 
+## Why "cuttings"?
+
+In horticulture, a *cutting* is a piece taken from a plant that, once placed in new soil, roots
+and grows into its own independent plant — while still sharing the same genetic material as the
+parent. A `cuttings` worktree works the same way: it's taken from the main repository and grows
+independently in its own directory and shell session, all while sharing the same underlying git
+history and objects.
+
 ## Features
 
 - **Instant isolation** — one command creates a worktree and opens a shell in it
