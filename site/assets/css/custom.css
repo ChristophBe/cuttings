@@ -11,17 +11,23 @@
   --primary-lightness: 55%;
 }
 
-/* Soft decorative glow behind the hero, using the same accent hue.
-   overflow-x/-y split (not the overflow shorthand): .hero-glow's top:-6rem
-   deliberately bleeds above this box so its radial gradient fades out
-   naturally instead of ending in a hard edge — clipping only the x-axis
-   (still needed since the glow is max-width:150vw, wider than most
-   viewports) leaves that vertical bleed visible. */
-.hero-wrap {
+/* Horizontal-only scroll guard, set on <html> rather than .hero-wrap: per
+   the CSS overflow spec, if overflow-x and overflow-y are set to different
+   values and one of them is `visible`, the visible one is computed as
+   `auto` instead — so `.hero-wrap { overflow-x: hidden; overflow-y: visible }`
+   silently became `overflow-y: auto`, which still clips content extending
+   above the box's top edge exactly like `hidden` does (verified live: the
+   glow's negative top offset was still cut off). Setting both values
+   explicitly here (neither is `visible`) avoids that swap, so .hero-glow's
+   intended bleed above/below .hero-wrap is never clipped, while the glow's
+   max-width:150vw (wider than mobile viewports, for a full-bleed edge
+   effect) still can't cause a horizontal scrollbar page-wide. */
+html {
   overflow-x: hidden;
-  overflow-y: visible;
+  overflow-y: auto;
 }
 
+/* Soft decorative glow behind the hero, using the same accent hue. */
 .hero-glow {
   position: absolute;
   top: -6rem;
