@@ -34,13 +34,13 @@ history and objects.
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew install christophbe/tap/cuttings
+brew install cuttings-cli/tap/cuttings
 ```
 
 ### Scoop (Windows)
 
 ```powershell
-scoop bucket add cuttings https://github.com/ChristophBe/scoop-bucket
+scoop bucket add cuttings https://github.com/cuttings-cli/scoop-bucket
 scoop install cuttings
 ```
 
