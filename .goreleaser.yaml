@@ -75,7 +75,7 @@ homebrew_casks:
     binaries:
       - cuttings
     repository:
-      owner: cuttings
+      owner: ChristophBe
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/ChristophBe/cuttings
@@ -84,7 +84,7 @@ homebrew_casks:
 
 scoops:
   - repository:
-      owner: cuttings
+      owner: ChristophBe
       name: scoop-bucket
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/ChristophBe/cuttings
