@@ -44,6 +44,21 @@ builds:
       # same variable paths as Makefile LDFLAGS
       - -X 'github.com/ChristophBe/cuttings/cmd.Version={{.Version}}'
       - -X 'github.com/ChristophBe/cuttings/cmd.BuildTime={{.Date}}'
+    # macOS binaries are signed with a Developer ID Application certificate and
+    # notarized by Apple via quill (https://github.com/anchore/quill), which
+    # cross-signs from Linux CI without needing a macOS runner or Xcode. This
+    # runs as a build post-hook (quill's documented integration pattern) so it
+    # signs the raw binary before the archive stage packages it — the released
+    # tar.gz, and therefore the Homebrew Cask, ships the signed binary.
+    # `--ad-hoc` lets local/snapshot builds get a runnable signature without
+    # real credentials. Credentials come from the QUILL_* env vars set in
+    # .github/workflows/release.yml — see CONTRIBUTING.md's Release process
+    # section. NOTE: goreleaser's generic `signs:`/`artifacts: binary` pipe
+    # does NOT work here — it only matches binary artifacts when
+    # `archives[].formats: binary` is set, which this project doesn't use.
+    hooks:
+      post:
+        - cmd: quill sign-and-notarize "{{ .Path }}" --dry-run={{ .IsSnapshot }} --ad-hoc={{ .IsSnapshot }} -vv
 
 archives:
   - formats:
@@ -86,23 +101,6 @@ signs:
       - "--yes"
     artifacts: checksum
     output: true
-
-  # macOS binaries are signed with a Developer ID Application certificate and
-  # notarized by Apple via quill (https://github.com/anchore/quill), which
-  # cross-signs from Linux CI without needing a macOS runner or Xcode. This
-  # runs on the raw binary before archiving so the released tar.gz already
-  # contains a signed, notarized executable. Credentials come from the
-  # QUILL_* env vars set in .github/workflows/release.yml — see
-  # CONTRIBUTING.md's Release process section.
-  - id: darwin
-    ids:
-      - darwin
-    artifacts: binary
-    cmd: quill
-    args:
-      - sign-and-notarize
-      - "${artifact}"
-      - --dry-run={{ .IsSnapshot }}
 
 homebrew_casks:
   - name: cuttings
