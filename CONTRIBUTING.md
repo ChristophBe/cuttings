@@ -142,9 +142,14 @@ any `v*` tag push, and via manual dispatch. Its jobs run in sequence:
    - builds and archives binaries for linux/darwin/windows, as before;
    - signs the `darwin` binaries with a Developer ID Application certificate
      and submits them to Apple's notary service via
-     [`quill`](https://github.com/anchore/quill) — cross-signing from the
-     Linux runner, no macOS runner or Xcode needed. This is what keeps
-     Gatekeeper from blocking downloaded macOS binaries;
+     [`quill`](https://github.com/anchore/quill), run as a `builds[darwin]`
+     post-hook right after each binary is built (and before it's archived) —
+     cross-signing from the Linux runner, no macOS runner or Xcode needed.
+     This is what keeps Gatekeeper from blocking downloaded macOS binaries,
+     including the ones installed via the Homebrew Cask below. (GoReleaser's
+     generic `signs:` pipe with `artifacts: binary` doesn't work for this —
+     it only matches when archives are packaged as `formats: binary`, which
+     this project doesn't do — so don't move this back there.);
    - builds `.deb`/`.rpm`/`.apk` packages (`nfpm`) and attaches them to the
      GitHub Release;
    - generates an SPDX SBOM per archive/package (`sboms`, via `syft`);
