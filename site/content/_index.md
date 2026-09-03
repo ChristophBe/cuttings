@@ -3,8 +3,10 @@ title: cuttings
 layout: hextra-home
 toc: false
 description: >-
-  cuttings turns git worktrees into isolated, one-command dev environments —
-  built for parallel work with AI coding agents.
+  cuttings turns git worktrees into isolated, disposable dev environments —
+  run AI coding agents in parallel, each in its own directory and shell.
+params:
+  seoTitle: "cuttings — Git Worktrees for Parallel AI Coding Agents"
 ---
 
 <div class="hx:relative hero-wrap">
@@ -160,9 +162,10 @@ each on a different branch, each with its own terminal session. Switching
 branches in a single directory disrupts uncommitted work and forces every
 tool, human or AI, to reload context.
 
-`cuttings` wraps [`git worktree`](https://git-scm.com/docs/git-worktree)
-in a single command that creates the isolated directory *and* drops you
-straight into a shell inside it.
+`cuttings` is a git worktree manager: a CLI that wraps
+[`git worktree`](https://git-scm.com/docs/git-worktree) in a single command,
+creating the isolated directory *and* dropping you straight into a shell
+inside it.
 
 In horticulture, a *cutting* is a piece taken from a plant that, once placed
 in new soil, roots and grows into its own independent plant — while still
@@ -195,7 +198,7 @@ git history and objects.
 
 <div class="hx:mb-8">
 {{< hextra/hero-section >}}
-  Built for parallel AI coding agents
+  Run AI coding agents in parallel
 {{< /hextra/hero-section >}}
 </div>
 
