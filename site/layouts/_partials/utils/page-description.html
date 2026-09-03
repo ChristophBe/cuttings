@@ -1,0 +1,15 @@
+{{ with .Params.seoDescription | plainify | htmlUnescape -}}
+  {{ . -}}
+{{ else -}}
+  {{ with .Description | plainify | htmlUnescape -}}
+    {{ . -}}
+  {{ else -}}
+    {{ if .IsHome -}}
+      {{ with .Site.Params.description | plainify | htmlUnescape -}}
+        {{ . -}}
+      {{ end -}}
+    {{ else -}}
+      {{ .Summary | plainify | htmlUnescape | chomp -}}
+    {{ end -}}
+  {{ end -}}
+{{ end -}}

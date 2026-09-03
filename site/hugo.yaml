@@ -5,6 +5,12 @@ locale: "en-US"
 
 enableRobotsTXT: true
 
+# Nothing in content uses categories or tags — disable both taxonomy kinds so
+# Hugo doesn't generate and index empty /categories/ and /tags/ pages.
+disableKinds:
+  - taxonomy
+  - term
+
 module:
   hugoVersion:
     extended: true
@@ -55,8 +61,8 @@ menu:
 
 params:
   description: >-
-    cuttings is a CLI that turns git worktrees into isolated, disposable
-    development environments — built for parallel work with AI coding agents.
+    cuttings turns git worktrees into isolated, disposable dev environments —
+    run AI coding agents in parallel, each in its own directory and shell.
 
   navbar:
     displayTitle: true

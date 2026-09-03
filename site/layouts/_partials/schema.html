@@ -1,0 +1,25 @@
+{{- $description := partial "utils/page-description.html" . -}}
+{{- $name := .Params.seoTitle | default .Title | default .Site.Title -}}
+{{- if .IsHome -}}
+  {{- $data := dict
+    "@context" "https://schema.org"
+    "@type" "SoftwareApplication"
+    "name" .Site.Title
+    "description" $description
+    "url" .Permalink
+    "applicationCategory" "DeveloperApplication"
+    "operatingSystem" "Linux, macOS, Windows"
+    "downloadUrl" "https://github.com/ChristophBe/cuttings/releases/latest"
+    "offers" (dict "@type" "Offer" "price" "0" "priceCurrency" "USD")
+  -}}
+  <script type="application/ld+json">{{ $data | jsonify | safeJS }}</script>
+{{- else -}}
+  {{- $data := dict
+    "@context" "https://schema.org"
+    "@type" "WebPage"
+    "name" $name
+    "description" $description
+    "url" .Permalink
+  -}}
+  <script type="application/ld+json">{{ $data | jsonify | safeJS }}</script>
+{{- end -}}
