@@ -34,7 +34,6 @@ var (
 	runBranch      string
 	runSource      string
 	runRemoveAfter bool
-	runInPlace     bool
 )
 
 // confirmRemoval asks the user whether the reused cutting for branch
@@ -121,38 +120,6 @@ func runAndExitCode(sigCh <-chan os.Signal, path, envBranch string, args []strin
 	return exitCode, interrupted, runFailErr
 }
 
-// runInPlaceCommand runs args directly in the current worktree (the one
-// cuttings was invoked from — the main repo checkout or a linked cutting)
-// without creating, reusing, locking, or removing any cutting. It is used
-// when --in-place is set, for e.g. running a long-lived dev server against the
-// exact files being edited live in another shell.
-func runInPlaceCommand(args []string) error {
-	cleanupOnSignal := deps.cfg.RunCleanupOnSignal
-
-	sigCh := make(chan os.Signal, 1)
-	if cleanupOnSignal {
-		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
-		defer signal.Stop(sigCh)
-	}
-
-	envBranch, err := deps.wt.CurrentBranch()
-	if err != nil {
-		return fmt.Errorf("get current branch: %w", err)
-	}
-	path := deps.wt.RepoRoot()
-
-	var exitCode int
-	defer func() {
-		if exitCode != 0 {
-			exitFn(exitCode)
-		}
-	}()
-
-	var runFailErr error
-	exitCode, _, runFailErr = runAndExitCode(sigCh, path, envBranch, args)
-	return runFailErr
-}
-
 var runCmd = &cobra.Command{
 	Use:   "run -- <command> [args...]",
 	Short: "Run a command in a temporary cutting, then clear it away",
@@ -171,31 +138,18 @@ isn't temporary, it is not removed automatically: once the command finishes,
 you are asked whether to remove it. Use --remove-after to skip that prompt
 and always remove it, e.g. from a script or CI.
 
-Use --in-place to run the command directly in the worktree cuttings was invoked
-from (the main repo checkout, or a cutting you cd'd into) instead of
-creating or reusing any cutting — nothing is created, locked, or removed
-afterward, regardless of uncommitted changes. This is for e.g. running a
-dev server against the exact files being edited live in another shell.
---in-place cannot be combined with --branch, --source, or --remove-after.
-
 Use -- to separate cuttings flags from the command and its arguments:
 
   cuttings run -- make test
   cuttings run --branch feature/foo -- go test ./...
   cuttings run --source origin/main -- ./scripts/ci.sh
   cuttings run --branch feature/foo --remove-after -- go test ./...
-  cuttings run --in-place -- npm run dev
 
 The exit code of the command is propagated to the calling shell.`,
 	Args: cobra.MinimumNArgs(1),
 	Example: "  cuttings run -- make test\n  cuttings run --branch feature/foo -- go test ./...\n" +
-		"  cuttings run --branch feature/foo --remove-after -- go test ./...\n" +
-		"  cuttings run --in-place -- npm run dev",
+		"  cuttings run --branch feature/foo --remove-after -- go test ./...",
 	RunE: func(_ *cobra.Command, args []string) error {
-		if runInPlace {
-			return runInPlaceCommand(args)
-		}
-
 		cleanupOnSignal := deps.cfg.RunCleanupOnSignal
 
 		if cleanupOnSignal {
@@ -335,10 +289,6 @@ func init() {
 	runCmd.Flags().StringVarP(&runBranch, "branch", "b", "", "branch to create a worktree for (created if it does not exist; reused if it does)")
 	runCmd.Flags().StringVarP(&runSource, "source", "s", "", "commit-ish to base the worktree on (default: HEAD)")
 	runCmd.Flags().BoolVarP(&runRemoveAfter, "remove-after", "r", false, "when reusing an existing --branch cutting, remove it after the command finishes without prompting")
-	runCmd.Flags().BoolVarP(&runInPlace, "in-place", "i", false, "run directly in the current worktree instead of creating or reusing a cutting; nothing is created, locked, or removed")
-	runCmd.MarkFlagsMutuallyExclusive("in-place", "branch")
-	runCmd.MarkFlagsMutuallyExclusive("in-place", "source")
-	runCmd.MarkFlagsMutuallyExclusive("in-place", "remove-after")
 	_ = runCmd.RegisterFlagCompletionFunc("branch", completeBranches)
 	_ = runCmd.RegisterFlagCompletionFunc("source", completeBranches)
 }

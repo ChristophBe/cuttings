@@ -30,7 +30,6 @@ type mockWorktreeManager struct {
 	addDetachedPath  string
 	addDetachedErr   error
 	pathResult       string
-	repoRootResult   string
 	currentBranch    string
 	currentBranchErr error
 	removeErr        error
@@ -84,7 +83,6 @@ func (m *mockWorktreeManager) Remove(key string, _ bool) error {
 func (m *mockWorktreeManager) ListBranches() ([]string, error)    { return nil, nil }
 func (m *mockWorktreeManager) List() ([]worktree.Worktree, error) { return nil, nil }
 func (m *mockWorktreeManager) Path(_ string) string               { return m.pathResult }
-func (m *mockWorktreeManager) RepoRoot() string                   { return m.repoRootResult }
 func (m *mockWorktreeManager) Lock(key string) error {
 	m.callOrder = append(m.callOrder, "Lock")
 	m.lockCalled = true
@@ -133,7 +131,6 @@ func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
 	savedRunBranch := runBranch
 	savedRunSource := runSource
 	savedRunRemoveAfter := runRemoveAfter
-	savedRunInPlace := runInPlace
 	savedExitFn := exitFn
 	savedPromptReader := promptReader
 
@@ -147,7 +144,6 @@ func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
 	runBranch = ""
 	runSource = ""
 	runRemoveAfter = false
-	runInPlace = false
 	// Default to an already-exhausted reader so a test that unexpectedly hits
 	// the removal prompt gets a deterministic "no" (EOF) instead of blocking.
 	promptReader = strings.NewReader("")
@@ -157,7 +153,6 @@ func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
 		runBranch = savedRunBranch
 		runSource = savedRunSource
 		runRemoveAfter = savedRunRemoveAfter
-		runInPlace = savedRunInPlace
 		exitFn = savedExitFn
 		promptReader = savedPromptReader
 	}
@@ -435,102 +430,6 @@ func TestRunCmd_ExistingBranch_WithoutRemoveAfter_NoLockRegistered(t *testing.T)
 // run.go's sigCh is only ever fed by signal.Notify, the same reason the
 // existing signal-handling tests above test cancellation semantics via
 // signalAwareRun directly rather than delivering a real signal here.
-
-// --- --in-place path ---
-//
-// Flag-parsing concerns (--in-place rejecting --branch/--source/--remove-after
-// via cobra's MarkFlagsMutuallyExclusive) are covered at the e2e level in
-// e2e/run_test.go: that validation runs during cobra's flag parsing, before
-// RunE is ever invoked, so it's outside what callRunE (which calls RunE
-// directly) can exercise.
-
-func TestRunCmd_InPlace_RunsDirectlyNoWorktreeOps(t *testing.T) {
-	wt := &mockWorktreeManager{currentBranch: "feature/foo", repoRootResult: "/repo/root"}
-	runner := &mockRunner{}
-	restore := setupRunTest(wt, runner)
-	defer restore()
-
-	runInPlace = true
-
-	if err := callRunE([]string{"echo", "hello"}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if runner.runDir != "/repo/root" {
-		t.Errorf("runner dir = %q, want %q", runner.runDir, "/repo/root")
-	}
-	if runner.runBranch != "feature/foo" {
-		t.Errorf("runner branch = %q, want %q", runner.runBranch, "feature/foo")
-	}
-	if wt.addBranch != "" || wt.addDetachedName != "" {
-		t.Error("no worktree should be created for --in-place")
-	}
-	if wt.sweepCalled {
-		t.Error("SweepOrphans() should not be called for --in-place")
-	}
-	if wt.lockCalled || wt.unlockCalled {
-		t.Error("Lock()/Unlock() should not be called for --in-place")
-	}
-	if wt.removeCalled {
-		t.Error("Remove() should not be called for --in-place")
-	}
-}
-
-func TestRunCmd_InPlace_CurrentBranchError(t *testing.T) {
-	wt := &mockWorktreeManager{currentBranchErr: errors.New("no git repo")}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
-
-	runInPlace = true
-
-	err := callRunE([]string{"true"})
-	if err == nil {
-		t.Fatal("expected error when CurrentBranch() fails, got nil")
-	}
-	if !strings.Contains(err.Error(), "get current branch") {
-		t.Errorf("error %q missing expected prefix", err.Error())
-	}
-}
-
-func TestRunCmd_InPlace_ExitErrorPropagatedViaExitFn(t *testing.T) {
-	wt := &mockWorktreeManager{currentBranch: "feature/foo", repoRootResult: "/repo/root"}
-
-	var exitErr *exec.ExitError
-	if err := exec.Command("sh", "-c", "exit 3").Run(); !errors.As(err, &exitErr) {
-		t.Skip("could not construct *exec.ExitError for test")
-	}
-
-	runner := &mockRunner{runErr: exitErr}
-	restore := setupRunTest(wt, runner)
-	defer restore()
-
-	runInPlace = true
-
-	var capturedCode int
-	exitFn = func(code int) { capturedCode = code }
-
-	err := callRunE([]string{"sh", "-c", "exit 3"})
-	if err != nil {
-		t.Errorf("RunE should return nil for ExitError (exit handled via exitFn), got: %v", err)
-	}
-	if capturedCode != 3 {
-		t.Errorf("exitFn called with code %d, want 3", capturedCode)
-	}
-}
-
-func TestRunCmd_InPlace_CommandFailure_NonExitErrorReturned(t *testing.T) {
-	wt := &mockWorktreeManager{currentBranch: "feature/foo", repoRootResult: "/repo/root"}
-	runner := &mockRunner{runErr: errors.New("command failed")}
-	restore := setupRunTest(wt, runner)
-	defer restore()
-
-	runInPlace = true
-
-	err := callRunE([]string{"failing-cmd"})
-	if err == nil {
-		t.Fatal("expected error from failing command, got nil")
-	}
-}
 
 func TestRunCmd_AddFails(t *testing.T) {
 	wt := &mockWorktreeManager{addErr: errors.New("git error")}
