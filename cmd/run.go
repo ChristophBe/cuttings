@@ -121,35 +121,73 @@ func runAndExitCode(sigCh <-chan os.Signal, path, envBranch string, args []strin
 }
 
 var runCmd = &cobra.Command{
-	Use:   "run -- <command> [args...]",
+	Use:   "run [branch] -- <command> [args...]",
 	Short: "Run a command in a temporary cutting, then clear it away",
 	Long: `Take a temporary cutting, run the given command inside it, then
 clear it away when the command finishes (whether it succeeds or fails).
 
 Only the worktree directory is removed — no branch is created or deleted.
 
-Without --branch, a detached HEAD worktree is created at the current branch's
-HEAD commit (or --source if specified). With --branch, a worktree is created for
-that branch (which is also created if it does not exist yet).
+Without a branch argument, a detached HEAD worktree is created at the current
+branch's HEAD commit (or --source if specified). With a branch argument, a
+worktree is created for that branch (which is also created if it does not
+exist yet).
 
-If --branch names a cutting that already exists, its worktree is reused
+If the branch names a cutting that already exists, its worktree is reused
 in place (nothing is created) instead of failing. Since a reused cutting
 isn't temporary, it is not removed automatically: once the command finishes,
 you are asked whether to remove it. Use --remove-after to skip that prompt
 and always remove it, e.g. from a script or CI.
 
-Use -- to separate cuttings flags from the command and its arguments:
+Use -- to separate the branch (if any) and cuttings flags from the command
+and its arguments:
 
   cuttings run -- make test
-  cuttings run --branch feature/foo -- go test ./...
+  cuttings run feature/foo -- go test ./...
   cuttings run --source origin/main -- ./scripts/ci.sh
-  cuttings run --branch feature/foo --remove-after -- go test ./...
+  cuttings run feature/foo --remove-after -- go test ./...
+
+The --branch/-b flag is deprecated; use the positional branch argument shown
+above instead.
 
 The exit code of the command is propagated to the calling shell.`,
-	Args: cobra.MinimumNArgs(1),
-	Example: "  cuttings run -- make test\n  cuttings run --branch feature/foo -- go test ./...\n" +
-		"  cuttings run --branch feature/foo --remove-after -- go test ./...",
-	RunE: func(_ *cobra.Command, args []string) error {
+	Args: func(cmd *cobra.Command, args []string) error {
+		dash := cmd.Flags().ArgsLenAtDash()
+		if dash > 1 {
+			return fmt.Errorf("accepts at most 1 branch argument before \"--\", received %d", dash)
+		}
+		minArgs := 1
+		if dash == 1 {
+			minArgs = 2
+		}
+		if len(args) < minArgs {
+			return errors.New("requires a command to run after \"--\"")
+		}
+		return nil
+	},
+	Example: "  cuttings run -- make test\n  cuttings run feature/foo -- go test ./...\n" +
+		"  cuttings run feature/foo --remove-after -- go test ./...",
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) > 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		return completeBranches(cmd, args, toComplete)
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var posBranch string
+		if dash := cmd.Flags().ArgsLenAtDash(); dash == 1 {
+			posBranch = args[0]
+			args = args[1:]
+		}
+
+		branch := runBranch
+		switch {
+		case posBranch != "" && branch != "":
+			return fmt.Errorf("cannot combine the positional branch argument %q with --branch %q; --branch is deprecated, use \"cuttings run %s -- ...\" instead", posBranch, branch, posBranch)
+		case posBranch != "":
+			branch = posBranch
+		}
+
 		cleanupOnSignal := deps.cfg.RunCleanupOnSignal
 
 		if cleanupOnSignal {
@@ -179,7 +217,7 @@ The exit code of the command is propagated to the calling shell.`,
 			err             error
 		)
 
-		if runBranch == "" {
+		if branch == "" {
 			// No branch specified — detached HEAD at current branch's commit.
 			envBranch, err = deps.wt.CurrentBranch()
 			if err != nil {
@@ -194,8 +232,8 @@ The exit code of the command is propagated to the calling shell.`,
 			}
 		} else {
 			// Explicit branch.
-			envBranch = runBranch
-			worktreeKey = runBranch
+			envBranch = branch
+			worktreeKey = branch
 
 			if deps.wt.Exists(worktreeKey) {
 				reusingExisting = true
@@ -288,7 +326,8 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.Flags().StringVarP(&runBranch, "branch", "b", "", "branch to create a worktree for (created if it does not exist; reused if it does)")
 	runCmd.Flags().StringVarP(&runSource, "source", "s", "", "commit-ish to base the worktree on (default: HEAD)")
-	runCmd.Flags().BoolVarP(&runRemoveAfter, "remove-after", "r", false, "when reusing an existing --branch cutting, remove it after the command finishes without prompting")
+	runCmd.Flags().BoolVarP(&runRemoveAfter, "remove-after", "r", false, "when reusing an existing branch's cutting, remove it after the command finishes without prompting")
 	_ = runCmd.RegisterFlagCompletionFunc("branch", completeBranches)
 	_ = runCmd.RegisterFlagCompletionFunc("source", completeBranches)
+	_ = runCmd.Flags().MarkDeprecated("branch", "use the positional branch argument instead, e.g. \"cuttings run <branch> -- <command>\"")
 }

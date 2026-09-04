@@ -8,7 +8,8 @@
 | `cuttings remove <TAB>` | Active cutting branches |
 | `cuttings new <TAB>` | All local git branches |
 | `cuttings new --source <TAB>` | All local git branches |
-| `cuttings run --branch <TAB>` | All local git branches |
+| `cuttings run <TAB>` | All local git branches (only as the first argument) |
+| `cuttings run --branch <TAB>` | All local git branches (deprecated flag) |
 | `cuttings run --source <TAB>` | All local git branches |
 
 ---

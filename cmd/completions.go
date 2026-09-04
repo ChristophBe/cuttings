@@ -30,7 +30,8 @@ func completeCuttings(_ *cobra.Command, _ []string, _ string) ([]string, cobra.S
 }
 
 // completeBranches returns all local git branch names. Used by commands that
-// accept any branch name (new, run --branch, --source flags).
+// accept any branch name (new, run's positional branch argument and its
+// deprecated --branch flag, --source flags).
 func completeBranches(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	if deps.wt == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp

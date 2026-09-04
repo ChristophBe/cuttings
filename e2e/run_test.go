@@ -57,6 +57,83 @@ func TestRun_Branch(t *testing.T) {
 	}
 }
 
+// TestRun_PositionalBranch mirrors TestRun_Branch but uses the positional
+// branch argument (`cuttings run <branch> -- <command>`) instead of the
+// deprecated --branch flag.
+func TestRun_PositionalBranch(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	r := h.run("run", "feature/run", "--", "sh", "-c", "echo ran")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stdout, "ran")
+
+	if !branchExists(t, dir, "feature/run") {
+		t.Fatalf("expected branch feature/run to be created")
+	}
+	wantPath := filepath.Join(dir, ".worktrees", "feature", "run")
+	if containsPath(worktreePaths(t, dir), wantPath) {
+		t.Fatalf("expected worktree %s to be cleaned up, branch should persist without it", wantPath)
+	}
+}
+
+// TestRun_PositionalBranch_ExistingReusesInPlace mirrors
+// TestRun_ExistingBranch_RunsInPlace but uses the positional branch argument.
+func TestRun_PositionalBranch_ExistingReusesInPlace(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+	newCutting(t, h, "feature/foo")
+
+	before := worktreePaths(t, dir)
+
+	r := h.run("run", "feature/foo", "--", "sh", "-c", "echo BRANCH=$CUTTING_BRANCH")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stdout, "Using existing cutting")
+	requireContains(t, r.stdout, "BRANCH=feature/foo")
+
+	after := worktreePaths(t, dir)
+	if len(after) != len(before) {
+		t.Fatalf("expected no new worktree to be created: before=%v after=%v", before, after)
+	}
+}
+
+// TestRun_PositionalBranch_ConflictsWithBranchFlag verifies the positional
+// branch argument and the deprecated --branch flag can't be combined.
+func TestRun_PositionalBranch_ConflictsWithBranchFlag(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	r := h.run("run", "feature/foo", "--branch", "feature/bar", "--", "true")
+	requireExitCode(t, r, 1)
+	requireContains(t, r.stderr, "feature/foo")
+	requireContains(t, r.stderr, "feature/bar")
+}
+
+// TestRun_PositionalBranch_TooManyBeforeDash verifies more than one
+// positional token before "--" is rejected.
+func TestRun_PositionalBranch_TooManyBeforeDash(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	r := h.run("run", "foo", "bar", "--", "true")
+	requireExitCode(t, r, 1)
+}
+
+// TestRun_BranchFlag_StillWorks_ButDeprecated verifies the --branch flag
+// keeps working exactly as before, but now emits a deprecation notice.
+func TestRun_BranchFlag_StillWorks_ButDeprecated(t *testing.T) {
+	dir := initRepo(t)
+	h := newHarness(t, dir)
+
+	r := h.run("run", "--branch", "feature/foo", "--", "true")
+	requireExitCode(t, r, 0)
+	requireContains(t, r.stderr, "deprecated")
+
+	if !branchExists(t, dir, "feature/foo") {
+		t.Fatalf("expected branch feature/foo to be created")
+	}
+}
+
 // TestRun_ExistingBranch_RunsInPlace verifies that `run --branch <existing>`
 // reuses the existing worktree in place (no new worktree is created) and
 // wires up the environment the same as for a freshly-created one.

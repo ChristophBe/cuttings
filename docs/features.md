@@ -149,43 +149,47 @@ clear it away when the command finishes (whether it succeeds or fails).
 
 Only the worktree directory is removed — no branch is created or deleted.
 
-Without --branch, a detached HEAD worktree is created at the current branch's
-HEAD commit (or --source if specified). With --branch, a worktree is created for
-that branch (which is also created if it does not exist yet).
+Without a branch argument, a detached HEAD worktree is created at the current
+branch's HEAD commit (or --source if specified). With a branch argument, a
+worktree is created for that branch (which is also created if it does not
+exist yet).
 
-If --branch names a cutting that already exists, its worktree is reused
+If the branch names a cutting that already exists, its worktree is reused
 in place (nothing is created) instead of failing. Since a reused cutting
 isn't temporary, it is not removed automatically: once the command finishes,
 you are asked whether to remove it. Use --remove-after to skip that prompt
 and always remove it, e.g. from a script or CI.
 
-Use -- to separate cuttings flags from the command and its arguments:
+Use -- to separate the branch (if any) and cuttings flags from the command
+and its arguments:
 
   cuttings run -- make test
-  cuttings run --branch feature/foo -- go test ./...
+  cuttings run feature/foo -- go test ./...
   cuttings run --source origin/main -- ./scripts/ci.sh
-  cuttings run --branch feature/foo --remove-after -- go test ./...
+  cuttings run feature/foo --remove-after -- go test ./...
+
+The --branch/-b flag is deprecated; use the positional branch argument shown
+above instead.
 
 The exit code of the command is propagated to the calling shell.
 
 ```
-cuttings run -- <command> [args...] [flags]
+cuttings run [branch] -- <command> [args...] [flags]
 ```
 
 #### Examples
 
 ```
   cuttings run -- make test
-  cuttings run --branch feature/foo -- go test ./...
-  cuttings run --branch feature/foo --remove-after -- go test ./...
+  cuttings run feature/foo -- go test ./...
+  cuttings run feature/foo --remove-after -- go test ./...
 ```
 
 #### Options
 
 ```
-  -b, --branch string   branch to create a worktree for (created if it does not exist; reused if it does)
   -h, --help            help for run
-  -r, --remove-after    when reusing an existing --branch cutting, remove it after the command finishes without prompting
+  -r, --remove-after    when reusing an existing branch's cutting, remove it after the command finishes without prompting
   -s, --source string   commit-ish to base the worktree on (default: HEAD)
 ```
 
