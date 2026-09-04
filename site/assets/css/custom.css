@@ -19,11 +19,20 @@
    above the box's top edge exactly like `hidden` does (verified live: the
    glow's negative top offset was still cut off). Setting both values
    explicitly here (neither is `visible`) avoids that swap, so .hero-glow's
-   intended bleed above/below .hero-wrap is never clipped, while the glow's
-   max-width:150vw (wider than mobile viewports, for a full-bleed edge
-   effect) still can't cause a horizontal scrollbar page-wide. */
-html {
+   intended bleed above/below .hero-wrap is never clipped.
+   `overflow-x: hidden` on <html> alone hides the scrollbar but does not
+   reliably block real scroll input — verified live with a simulated
+   scroll-wheel gesture, which still moved window.scrollX by exactly the
+   glow's overflow (its max-width:150vw bleed past the viewport edge, by
+   design for the full-bleed effect). <body> needs the same overflow-x:
+   hidden for the block to actually hold; with both set, the same gesture
+   left scrollX at 0. */
+html,
+body {
   overflow-x: hidden;
+}
+
+html {
   overflow-y: auto;
 }
 
@@ -191,6 +200,25 @@ a.hextra-card {
    intrinsic width instead. :has() targets it precisely since it has no
    class of its own to select. */
 div:has(> .hextra-tabs-panel) {
+  width: 100%;
+}
+
+/* Same flex/align-items:start shrink-to-fit bug, hitting the tab *button row*
+   instead of the panels above: hextra's tabs.html wraps the buttons in
+   `.hextra-scrollbar hx:overflow-x-auto`, meant to let the row scroll
+   internally when it doesn't fit. But the row's own buttons can't wrap or
+   shrink (`hx:w-max`, no flex-wrap), so its min-content width equals its
+   max-content width — which makes the shrink-to-fit formula
+   (`min(max-content, max(min-content, available))`) resolve to that fixed
+   content width (700px for the platform-install tabs, verified live)
+   regardless of how little space is actually available. On mobile that
+   fixed-width box, not just its overflow-x-auto *content*, is wider than
+   the viewport, so the whole page scrolls horizontally instead of the tab
+   bar scrolling internally. Scoped to `[role="tablist"]` so this doesn't
+   touch the other, unrelated uses of `.hextra-scrollbar` (docs sidebar,
+   TOC, search-results dropdown, Jupyter cells), which already size
+   themselves correctly. */
+.hextra-scrollbar:has([role="tablist"]) {
   width: 100%;
 }
 
