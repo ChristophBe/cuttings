@@ -162,24 +162,20 @@ each on a different branch, each with its own terminal session. Switching
 branches in a single directory disrupts uncommitted work and forces every
 tool, human or AI, to reload context.
 
-`cuttings` is a git worktree manager: a CLI that wraps
-[`git worktree`](https://git-scm.com/docs/git-worktree) in a single command,
-creating the isolated directory *and* dropping you straight into a shell
-inside it.
-
-In horticulture, a *cutting* is a piece taken from a plant that, once placed
-in new soil, roots and grows into its own independent plant — while still
-sharing the same genetic material as the parent. A `cuttings` worktree works
-the same way: it's taken from the main repository and grows independently in
-its own directory and shell session, all while sharing the same underlying
-git history and objects.
+In horticulture, a *cutting* is a piece taken from a plant that roots in its
+own soil and grows into a fully independent plant — while still sharing the
+same genetic material as the parent. `cuttings` is a git worktree manager
+built on exactly that idea: a single command takes a cutting from your main
+checkout — a real [`git worktree`](https://git-scm.com/docs/git-worktree) of
+its own — and grows it into an isolated directory with its own shell, sharing
+the same underlying git history and objects the whole time.
 
 <div class="hx:mb-8"></div>
 
 {{< hextra/feature-grid cols="3" >}}
   {{< hextra/feature-card
     title="Instant isolation"
-    subtitle="One command creates a worktree and opens a shell inside it — no manual git worktree juggling."
+    subtitle="One command takes a cutting and opens a shell inside it — no manual git worktree juggling."
     icon="lightning-bolt"
   >}}
   {{< hextra/feature-card
@@ -189,7 +185,7 @@ git history and objects.
   >}}
   {{< hextra/feature-card
     title="One-off commands"
-    subtitle="`cuttings run -- <cmd>` spins up a worktree, runs your command, and tears it down automatically — exit code and all. No shell, no manual cleanup."
+    subtitle="`cuttings run -- <cmd>` takes a temporary cutting, runs your command inside it, and clears it away automatically — exit code and all. No shell, no manual cleanup."
     icon="play"
   >}}
 {{< /hextra/feature-grid >}}
@@ -428,7 +424,7 @@ worktree to cleaning it back up again:
 <div class="command-card-text">
 <div class="command-card-header">{{< icon name="plus-circle" attributes="height=20" >}}<span class="command-card-title">New</span></div>
 
-Creates a worktree for the branch — making the branch too, if it doesn't
+Takes a cutting for the branch — making the branch too, if it doesn't
 exist yet — and drops you straight into an interactive shell inside it. A
 real, isolated directory, ready to work in.
 
@@ -448,9 +444,9 @@ cuttings new feature/auth
 <div class="command-card-text">
 <div class="command-card-header">{{< icon name="view-list" attributes="height=20" >}}<span class="command-card-title">List</span></div>
 
-Shows every active cutting at a glance: branch name, worktree path, and
-whether it's the main checkout or a cutting. No need to remember what
-you've got open.
+Shows everything you've got growing at a glance: every cutting's branch
+name and worktree path, plus whether it's the main checkout. No need to
+remember what you've got open.
 
 [Full reference →](docs/features#cuttings-list-alias-ls)
 </div>
@@ -488,9 +484,8 @@ cuttings shell feature/auth
 <div class="command-card-text">
 <div class="command-card-header">{{< icon name="trash" attributes="height=20" >}}<span class="command-card-title">Remove</span></div>
 
-Deletes the worktree directory once you're done with it. The git branch
-itself is preserved, so you can pick the cutting back up later if you
-need to.
+Uproots the cutting once you're done with it. The git branch itself is
+preserved, so you can take the same cutting again later if you need to.
 
 [Full reference →](docs/features#cuttings-remove-alias-rm)
 </div>
@@ -508,9 +503,9 @@ cuttings remove feature/auth
 <div class="command-card-text">
 <div class="command-card-header">{{< icon name="play" attributes="height=20" >}}<span class="command-card-title">Run</span></div>
 
-Spins up a temporary worktree, runs a single command inside it, and tears
-the worktree down automatically — exit code and all. Add `--branch` to
-keep it around instead of a throwaway.
+Takes a quick, temporary cutting, runs a single command inside it, and
+clears it away automatically — exit code and all. Add `--branch` to keep
+it around and let it take root, instead of a throwaway.
 
 [Full reference →](docs/features#cuttings-run)
 </div>
