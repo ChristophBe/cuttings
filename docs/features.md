@@ -156,21 +156,29 @@ The command will fail if the worktree has uncommitted changes. Use
 "git -C .worktrees/<branch> checkout -- ." to discard them first, or pass
 --force to discard them as part of removal.
 
+Use --all to remove every cutting instead of a single branch. Combine it
+with --dry-run to preview what would be removed, or --force to discard
+uncommitted changes in every cutting that has them.
+
 ```
-cuttings remove <branch> [flags]
+cuttings remove [branch] [flags]
 ```
 
 #### Examples
 
 ```
   cuttings remove feature/my-feature
+  cuttings remove --all
+  cuttings remove --all --dry-run
 ```
 
 #### Options
 
 ```
-  -f, --force   remove even if the worktree has uncommitted or untracked changes
-  -h, --help    help for remove
+  -a, --all       remove every cutting instead of a single branch
+  -n, --dry-run   show what would be removed without removing anything
+  -f, --force     remove even if the worktree has uncommitted or untracked changes
+  -h, --help      help for remove
 ```
 
 ### cuttings run
