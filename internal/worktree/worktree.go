@@ -57,14 +57,6 @@ func NewManager(repoRoot, worktreesDir string) *Manager {
 	return &Manager{repoRoot: repoRoot, worktreesDir: worktreesDir}
 }
 
-// RepoRoot returns the absolute path to the repository root this Manager is
-// scoped to (as resolved by FindRepoRoot at construction time) — the main
-// worktree if invoked from there, or a linked worktree's own root if
-// invoked from within one.
-func (m *Manager) RepoRoot() string {
-	return m.repoRoot
-}
-
 // Path returns the absolute filesystem path where a cutting worktree for
 // branch is stored. The path may not exist yet.
 func (m *Manager) Path(branch string) string {

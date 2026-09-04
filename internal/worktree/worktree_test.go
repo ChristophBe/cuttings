@@ -189,15 +189,6 @@ func TestList_WithWorktree(t *testing.T) {
 	}
 }
 
-func TestRepoRoot(t *testing.T) {
-	dir := initRepo(t)
-	m := worktree.NewManager(dir, ".worktrees")
-
-	if got := m.RepoRoot(); got != dir {
-		t.Errorf("RepoRoot() = %q, want %q", got, dir)
-	}
-}
-
 func TestRemove(t *testing.T) {
 	dir := initRepo(t)
 	m := worktree.NewManager(dir, ".worktrees")

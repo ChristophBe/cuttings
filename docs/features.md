@@ -159,20 +159,12 @@ isn't temporary, it is not removed automatically: once the command finishes,
 you are asked whether to remove it. Use --remove-after to skip that prompt
 and always remove it, e.g. from a script or CI.
 
-Use --in-place to run the command directly in the worktree cuttings was invoked
-from (the main repo checkout, or a cutting you cd'd into) instead of
-creating or reusing any cutting — nothing is created, locked, or removed
-afterward, regardless of uncommitted changes. This is for e.g. running a
-dev server against the exact files being edited live in another shell.
---in-place cannot be combined with --branch, --source, or --remove-after.
-
 Use -- to separate cuttings flags from the command and its arguments:
 
   cuttings run -- make test
   cuttings run --branch feature/foo -- go test ./...
   cuttings run --source origin/main -- ./scripts/ci.sh
   cuttings run --branch feature/foo --remove-after -- go test ./...
-  cuttings run --in-place -- npm run dev
 
 The exit code of the command is propagated to the calling shell.
 
@@ -186,7 +178,6 @@ cuttings run -- <command> [args...] [flags]
   cuttings run -- make test
   cuttings run --branch feature/foo -- go test ./...
   cuttings run --branch feature/foo --remove-after -- go test ./...
-  cuttings run --in-place -- npm run dev
 ```
 
 #### Options
@@ -194,7 +185,6 @@ cuttings run -- <command> [args...] [flags]
 ```
   -b, --branch string   branch to create a worktree for (created if it does not exist; reused if it does)
   -h, --help            help for run
-  -i, --in-place        run directly in the current worktree instead of creating or reusing a cutting; nothing is created, locked, or removed
   -r, --remove-after    when reusing an existing --branch cutting, remove it after the command finishes without prompting
   -s, --source string   commit-ish to base the worktree on (default: HEAD)
 ```

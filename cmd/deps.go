@@ -24,7 +24,6 @@ type WorktreeManager interface {
 	Exists(branch string) bool
 	BranchExists(branch string) bool
 	Path(branch string) string
-	RepoRoot() string
 	Lock(key string) error
 	Unlock(key string) error
 	SweepOrphans() ([]string, error)
