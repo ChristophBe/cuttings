@@ -2,7 +2,7 @@
 
 ## Overview
 
-`cuttings` is a command-line tool that manages git worktrees as isolated development environments ("cuttings"). Each cutting is a separate filesystem directory checked out to a specific branch, with an associated interactive shell session. This allows multiple tools — or multiple humans — to work on different branches of the same repository simultaneously without interference.
+In horticulture, a *cutting* is a piece taken from a plant that roots in its own soil and grows into a fully independent plant, while still sharing the same genetic material as the parent. `cuttings` is a command-line tool built on that idea: it takes a cutting from your repository — a git worktree, in git's own terms — and grows it into its own isolated filesystem directory with its own interactive shell, checked out to a specific branch. This lets multiple tools — or multiple humans — work on different branches of the same repository simultaneously without interference.
 
 ---
 
@@ -71,11 +71,11 @@ cuttings list [flags]
 
 ### cuttings new
 
-Create a new cutting and open an interactive shell
+Take a new cutting and open an interactive shell
 
 #### Synopsis
 
-Create a new git worktree for the given branch and open an interactive
+Take a new git worktree for the given branch and open an interactive
 shell inside it. If the branch does not exist it will be created.
 
 The worktree is stored at .worktrees/<branch>/ relative to the repository root.
@@ -110,12 +110,12 @@ cuttings new <branch> [flags]
 
 ### cuttings remove (alias: rm)
 
-Remove a cutting worktree
+Uproot a cutting
 
 #### Synopsis
 
-Remove the git worktree for the given branch. The branch itself is preserved
-so you can re-create the cutting later with "cuttings new <branch>".
+Uproot the git worktree for the given branch. The branch itself is preserved
+so you can take the same cutting again later with "cuttings new <branch>".
 
 The command will fail if the worktree has uncommitted changes. Use
 "git -C .worktrees/<branch> checkout -- ." to discard them first, or pass
@@ -140,12 +140,12 @@ cuttings remove <branch> [flags]
 
 ### cuttings run
 
-Run a command in a temporary cutting, then clean up
+Run a command in a temporary cutting, then clear it away
 
 #### Synopsis
 
-Create a temporary git worktree, run the given command inside it, then
-remove the worktree when the command finishes (whether it succeeds or fails).
+Take a temporary cutting, run the given command inside it, then
+clear it away when the command finishes (whether it succeeds or fails).
 
 Only the worktree directory is removed — no branch is created or deleted.
 

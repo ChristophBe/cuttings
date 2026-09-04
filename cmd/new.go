@@ -16,8 +16,8 @@ var sourceBranch string
 
 var newCmd = &cobra.Command{
 	Use:   "new <branch>",
-	Short: "Create a new cutting and open an interactive shell",
-	Long: `Create a new git worktree for the given branch and open an interactive
+	Short: "Take a new cutting and open an interactive shell",
+	Long: `Take a new git worktree for the given branch and open an interactive
 shell inside it. If the branch does not exist it will be created.
 
 The worktree is stored at .worktrees/<branch>/ relative to the repository root.

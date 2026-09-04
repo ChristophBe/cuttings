@@ -19,7 +19,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "cuttings",
 	Short: "Grow isolated git worktrees as cuttings",
-	Long: `cuttings is a CLI tool for creating and managing isolated git working
+	Long: `cuttings is a CLI tool for growing and managing isolated git working
 environments based on git worktrees.
 
 Each cutting is a separate directory (stored in .worktrees/<branch>/) with
@@ -27,10 +27,10 @@ its own shell session, allowing tools like Claude Code to work on multiple
 branches in parallel without interfering with each other.
 
 Examples:
-  cuttings new feature/my-feature   Create a new cutting and open a shell
+  cuttings new feature/my-feature   Take a new cutting and open a shell
   cuttings list                     List all active cuttings
   cuttings shell feature/my-feature Re-open a shell in an existing cutting
-  cuttings remove feature/my-feature Remove a cutting`,
+  cuttings remove feature/my-feature Uproot a cutting`,
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		repoRoot, err := worktree.FindRepoRoot()
 		if err != nil {

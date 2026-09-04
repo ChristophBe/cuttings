@@ -19,10 +19,10 @@ var removeForce bool
 
 var removeCmd = &cobra.Command{
 	Use:     "remove <branch>",
-	Short:   "Remove a cutting worktree",
+	Short:   "Uproot a cutting",
 	Aliases: []string{"rm"},
-	Long: `Remove the git worktree for the given branch. The branch itself is preserved
-so you can re-create the cutting later with "cuttings new <branch>".
+	Long: `Uproot the git worktree for the given branch. The branch itself is preserved
+so you can take the same cutting again later with "cuttings new <branch>".
 
 The command will fail if the worktree has uncommitted changes. Use
 "git -C .worktrees/<branch> checkout -- ." to discard them first, or pass
