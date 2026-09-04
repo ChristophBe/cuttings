@@ -180,6 +180,27 @@ func (m *Manager) ListBranches() ([]string, error) {
 	return branches, nil
 }
 
+// ListMergedBranches returns the names of local branches that are fully
+// merged into base — i.e. base already contains every commit on that
+// branch. base itself is always included, since a branch is trivially
+// merged into itself.
+func (m *Manager) ListMergedBranches(base string) ([]string, error) {
+	//nolint:gosec // base is a user-supplied git ref; this is intentional.
+	cmd := exec.Command("git", "branch", "--format=%(refname:short)", "--merged", base)
+	cmd.Dir = m.repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git branch --merged: %w", err)
+	}
+	var branches []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			branches = append(branches, line)
+		}
+	}
+	return branches, nil
+}
+
 // CurrentBranch returns the name of the branch currently checked out in the
 // main worktree. Returns "HEAD" if the repository is in detached HEAD state.
 func (m *Manager) CurrentBranch() (string, error) {
