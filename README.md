@@ -11,19 +11,17 @@ A CLI tool for creating and managing isolated git working environments based on 
 
 When working with AI coding assistants (or simply juggling multiple features), you often need multiple, completely isolated copies of a repository — each on a different branch, each with its own terminal session. Switching branches in a single directory disrupts uncommitted work and forces tools to reload context.
 
-`cuttings` solves this by wrapping git worktrees with a single command that creates the isolated directory *and* drops you into a shell inside it.
-
 ## Why "cuttings"?
 
-In horticulture, a *cutting* is a piece taken from a plant that, once placed in new soil, roots
-and grows into its own independent plant — while still sharing the same genetic material as the
-parent. A `cuttings` worktree works the same way: it's taken from the main repository and grows
-independently in its own directory and shell session, all while sharing the same underlying git
-history and objects.
+In horticulture, a *cutting* is a piece taken from a plant that roots in its own soil and grows
+into a fully independent plant — while still sharing the same genetic material as the parent.
+`cuttings` solves the problem above the same way: it takes a cutting from your repository — a
+real `git worktree` — and grows it into its own isolated directory with its own shell, all while
+sharing the same underlying git history and objects as the parent checkout.
 
 ## Features
 
-- **Instant isolation** — one command creates a worktree and opens a shell in it
+- **Instant isolation** — one command takes a cutting and opens a shell in it
 - **Branch flexibility** — creates a new branch if it does not exist, uses an existing one otherwise
 - **Zero state** — all state is stored by git itself (`git worktree list`); no daemon or config database
 - **Environment injection** — `CUTTING_BRANCH` and `CUTTING_PATH` are set in the shell so prompts and tools know their context
@@ -132,7 +130,7 @@ This runs tests and lint in CI before building multi-platform binaries and publi
 cuttings new feature/my-feature
 ```
 
-Creates a worktree at `.worktrees/feature/my-feature/`, creates the branch if it does not exist, and opens an interactive shell inside. Type `exit` to return to your original shell. The worktree persists until you explicitly remove it.
+Takes a cutting at `.worktrees/feature/my-feature/`, creating the branch if it does not exist, and opens an interactive shell inside. Type `exit` to return to your original shell. The worktree persists until you explicitly remove it.
 
 ### List active cuttings
 
@@ -165,7 +163,7 @@ cuttings remove feature/my-feature
 cuttings rm feature/my-feature
 ```
 
-Removes the worktree directory. The git branch is preserved so you can re-create the cutting later.
+Uproots the worktree directory. The git branch is preserved so you can take the same cutting again later.
 
 ## How It Works
 

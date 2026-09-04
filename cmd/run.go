@@ -155,9 +155,9 @@ func runInPlaceCommand(args []string) error {
 
 var runCmd = &cobra.Command{
 	Use:   "run -- <command> [args...]",
-	Short: "Run a command in a temporary cutting, then clean up",
-	Long: `Create a temporary git worktree, run the given command inside it, then
-remove the worktree when the command finishes (whether it succeeds or fails).
+	Short: "Run a command in a temporary cutting, then clear it away",
+	Long: `Take a temporary cutting, run the given command inside it, then
+clear it away when the command finishes (whether it succeeds or fails).
 
 Only the worktree directory is removed — no branch is created or deleted.
 

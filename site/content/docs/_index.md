@@ -24,7 +24,7 @@ cascade:
 ---
 
 `cuttings` is a git worktree manager built for running AI coding agents in
-parallel: every command below creates, lists, or tears down an isolated git
+parallel: every command below takes, lists, or clears away an isolated git
 worktree — its own directory and shell — so each agent or branch stays
 completely conflict-free.
 
