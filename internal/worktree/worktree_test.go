@@ -383,6 +383,131 @@ func TestListBranches_DetachedHeadNotListed(t *testing.T) {
 	}
 }
 
+func TestListMergedBranches_MergedIncluded(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	run := func(args ...string) {
+		t.Helper()
+		//nolint:gosec // test helper — args are controlled literals, not user input.
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	// feature/merged forks from main with no new commits, so it's trivially
+	// merged into main.
+	run("branch", "feature/merged")
+
+	branches, err := m.ListMergedBranches("main")
+	if err != nil {
+		t.Fatalf("ListMergedBranches() unexpected error: %v", err)
+	}
+
+	want := map[string]bool{"main": true, "feature/merged": true}
+	if len(branches) != len(want) {
+		t.Fatalf("ListMergedBranches() returned %d branches, want %d: %v", len(branches), len(want), branches)
+	}
+	for _, b := range branches {
+		if !want[b] {
+			t.Errorf("unexpected branch %q in ListMergedBranches()", b)
+		}
+	}
+}
+
+func TestListMergedBranches_UnmergedExcluded(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	if _, err := m.Add("feature/unmerged", true, ""); err != nil {
+		t.Fatalf("Add() setup: %v", err)
+	}
+	// Commit inside the new worktree so the branch diverges from main.
+	wtPath := m.Path("feature/unmerged")
+	if err := os.WriteFile(filepath.Join(wtPath, "extra.txt"), []byte("extra\n"), 0o600); err != nil {
+		t.Fatalf("write extra.txt: %v", err)
+	}
+	run := func(args ...string) {
+		t.Helper()
+		//nolint:gosec // test helper — args are controlled literals, not user input.
+		cmd := exec.Command("git", args...)
+		cmd.Dir = wtPath
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("add", "extra.txt")
+	run("commit", "-m", "diverge from main")
+
+	branches, err := m.ListMergedBranches("main")
+	if err != nil {
+		t.Fatalf("ListMergedBranches() unexpected error: %v", err)
+	}
+	for _, b := range branches {
+		if b == "feature/unmerged" {
+			t.Errorf("ListMergedBranches() should not contain unmerged branch %q", b)
+		}
+	}
+}
+
+func TestListMergedBranches_CustomBase(t *testing.T) {
+	dir := initRepo(t)
+	m := worktree.NewManager(dir, ".worktrees")
+
+	run := func(runDir string, args ...string) {
+		t.Helper()
+		//nolint:gosec // test helper — args are controlled literals, not user input.
+		cmd := exec.Command("git", args...)
+		cmd.Dir = runDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	// Give "develop" a commit main doesn't have, so branches forked from it
+	// are merged into develop but not into main.
+	if _, err := m.Add("develop", true, ""); err != nil {
+		t.Fatalf("Add() setup: %v", err)
+	}
+	developPath := m.Path("develop")
+	if err := os.WriteFile(filepath.Join(developPath, "develop-only.txt"), []byte("develop\n"), 0o600); err != nil {
+		t.Fatalf("write develop-only.txt: %v", err)
+	}
+	run(developPath, "add", "develop-only.txt")
+	run(developPath, "commit", "-m", "develop-only commit")
+
+	if _, err := m.Add("feature/on-develop", true, "develop"); err != nil {
+		t.Fatalf("Add() setup: %v", err)
+	}
+
+	branches, err := m.ListMergedBranches("develop")
+	if err != nil {
+		t.Fatalf("ListMergedBranches() unexpected error: %v", err)
+	}
+	found := false
+	for _, b := range branches {
+		if b == "feature/on-develop" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("ListMergedBranches(%q) = %v, want to contain %q", "develop", branches, "feature/on-develop")
+	}
+
+	// feature/on-develop must not show up as merged into main, since main
+	// doesn't have the "develop" branch commit.
+	mainBranches, err := m.ListMergedBranches("main")
+	if err != nil {
+		t.Fatalf("ListMergedBranches() unexpected error: %v", err)
+	}
+	for _, b := range mainBranches {
+		if b == "feature/on-develop" || b == "develop" {
+			t.Errorf("ListMergedBranches(%q) should not contain %q", "main", b)
+		}
+	}
+}
+
 func TestCurrentBranch(t *testing.T) {
 	dir := initRepo(t)
 	m := worktree.NewManager(dir, ".worktrees")

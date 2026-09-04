@@ -19,6 +19,7 @@ type WorktreeManager interface {
 	AddDetached(name, base string) (string, error)
 	CurrentBranch() (string, error)
 	ListBranches() ([]string, error)
+	ListMergedBranches(base string) ([]string, error)
 	List() ([]worktree.Worktree, error)
 	Remove(branch string, force bool) error
 	Exists(branch string) bool

@@ -80,9 +80,10 @@ func (m *mockWorktreeManager) Remove(key string, _ bool) error {
 	m.removeKey = key
 	return m.removeErr
 }
-func (m *mockWorktreeManager) ListBranches() ([]string, error)    { return nil, nil }
-func (m *mockWorktreeManager) List() ([]worktree.Worktree, error) { return nil, nil }
-func (m *mockWorktreeManager) Path(_ string) string               { return m.pathResult }
+func (m *mockWorktreeManager) ListBranches() ([]string, error)               { return nil, nil }
+func (m *mockWorktreeManager) ListMergedBranches(_ string) ([]string, error) { return nil, nil }
+func (m *mockWorktreeManager) List() ([]worktree.Worktree, error)            { return nil, nil }
+func (m *mockWorktreeManager) Path(_ string) string                          { return m.pathResult }
 func (m *mockWorktreeManager) Lock(key string) error {
 	m.callOrder = append(m.callOrder, "Lock")
 	m.lockCalled = true

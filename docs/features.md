@@ -108,6 +108,41 @@ cuttings new <branch> [flags]
   -s, --source string   branch or commit to fork from when creating a new branch (default: HEAD)
 ```
 
+### cuttings prune
+
+Clear away cuttings whose branch is fully merged
+
+#### Synopsis
+
+Remove every cutting whose branch has already been fully merged into the
+default branch — or, if default_branch is not configured, the branch
+currently checked out in the main worktree. The branches themselves are
+preserved, same as "cuttings remove".
+
+Cuttings with uncommitted or untracked changes are left in place unless
+--force is given. Use --dry-run to see what would be removed without
+removing anything.
+
+```
+cuttings prune [flags]
+```
+
+#### Examples
+
+```
+  cuttings prune
+  cuttings prune --dry-run
+  cuttings prune --force
+```
+
+#### Options
+
+```
+  -n, --dry-run   show what would be removed without removing anything
+  -f, --force     remove even if a cutting has uncommitted or untracked changes
+  -h, --help      help for prune
+```
+
 ### cuttings remove (alias: rm)
 
 Uproot a cutting
@@ -279,7 +314,8 @@ If these variables are already set (e.g. nested cuttings), they are replaced wit
 - **Uncommitted changes block removal.** `git worktree remove` refuses to remove a dirty worktree. Use `git -C .worktrees/<branch> stash` or `checkout -- .` first.
 - **Detached HEAD.** If a branch is checked out in detached HEAD state, `cuttings list` will show an empty branch name for that worktree.
 - **No daemon.** There is no background process. All state is queried from git on demand.
-- **No automatic cleanup.** Removing a cutting does not delete the branch. There is currently no `cuttings prune` command.
+- **No automatic cleanup.** Removing a cutting does not delete the branch. `cuttings prune`
+  removes cuttings whose branch is fully merged, but never deletes branches themselves.
 
 ---
 
