@@ -2,128 +2,45 @@
 Copyright © 2026 Christoph Becker
 */
 
-// Package cmd contains the Cobra command definitions for the cuttings CLI.
 package cmd
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/ChristophBe/cuttings/internal/run"
 )
 
-// exitFn is called to terminate the process with a given exit code. It is a
-// package-level variable so tests can replace it with a non-terminating stub.
-var exitFn = os.Exit
-
-// promptReader is the source read from when asking whether to remove a
-// reused cutting. A package-level variable so tests can inject scripted
-// answers instead of the real os.Stdin.
-var promptReader io.Reader = os.Stdin
-
-var (
-	runBranch      string
-	runSource      string
-	runRemoveAfter bool
-)
-
-// confirmRemoval asks the user whether the reused cutting for branch
-// should be removed, reading one line from promptReader. Any answer other
-// than "y"/"yes" (including EOF, e.g. no terminal attached) is treated as
-// "no" — the safe default that never silently deletes existing work.
-func confirmRemoval(branch string) bool {
-	_, _ = fmt.Fprintf(os.Stdout, "Remove cutting %q? [y/N]: ", branch)
-	line, _ := bufio.NewReader(promptReader).ReadString('\n')
+// confirmRemoval asks the user whether the reused cutting for branch should be
+// removed, reading one line from in. Any answer other than "y"/"yes"
+// (including EOF, e.g. no terminal attached) is treated as "no" — the safe
+// default that never silently deletes existing work.
+func confirmRemoval(out io.Writer, in io.Reader, branch string) bool {
+	_, _ = fmt.Fprintf(out, "Remove cutting %q? [y/N]: ", branch)
+	line, _ := bufio.NewReader(in).ReadString('\n')
 	answer := strings.ToLower(strings.TrimSpace(line))
 	return answer == "y" || answer == "yes"
 }
 
-// signalAwareRun runs fn with a context derived from base that is canceled
-// as soon as a signal arrives on sigCh, and reports which signal (if any)
-// triggered that cancellation. fn is expected to respect ctx cancellation
-// (e.g. by passing it through to an exec.CommandContext-based runner) so
-// that a caught, terminating signal still lets fn return promptly instead of
-// Go's default signal disposition killing the process before any cleanup
-// defers can run.
-func signalAwareRun(base context.Context, sigCh <-chan os.Signal, fn func(ctx context.Context) error) (receivedSig os.Signal, runErr error) {
-	ctx, cancel := context.WithCancel(base)
-	defer cancel()
+func newRunCmd(d *Deps) *cobra.Command {
+	var (
+		branchFlag  string
+		source      string
+		removeAfter bool
+	)
 
-	stop := make(chan struct{})
-	watcherDone := make(chan struct{})
-	go func() {
-		defer close(watcherDone)
-		select {
-		case sig := <-sigCh:
-			receivedSig = sig
-			cancel()
-		case <-stop:
-		}
-	}()
-
-	runErr = fn(ctx)
-	close(stop)
-	<-watcherDone // wait for the watcher to finish before reading receivedSig
-	return receivedSig, runErr
-}
-
-// signalExitCode maps a terminating signal to the shell convention of
-// 128+signum, matching what a shell itself reports for a signal-killed
-// foreground process (e.g. 130 for SIGINT, 143 for SIGTERM).
-func signalExitCode(sig os.Signal) int {
-	if s, ok := sig.(syscall.Signal); ok {
-		return 128 + int(s)
-	}
-	return 1
-}
-
-// runAndExitCode runs args via deps.runner inside a signal-aware context
-// (sigCh, as set up by the caller), and maps the outcome to an exit code:
-// a caught signal or a *exec.ExitError both become a process exit code
-// (interrupted distinguishes the former, e.g. so a caller can skip a
-// post-run prompt when the run was cut short); any other error is returned
-// as runFailErr for the caller to propagate directly.
-func runAndExitCode(sigCh <-chan os.Signal, path, envBranch string, args []string) (exitCode int, interrupted bool, runFailErr error) {
-	receivedSig, runErr := signalAwareRun(context.Background(), sigCh, func(ctx context.Context) error {
-		return deps.runner.Run(ctx, path, envBranch, args)
-	})
-
-	switch {
-	case runErr != nil && receivedSig != nil:
-		// A caught signal takes priority over the raw process exit code: a
-		// signal-killed process reports ExitCode() == -1, which loses the
-		// information a shell caller expects (128+signum).
-		exitCode = signalExitCode(receivedSig)
-		interrupted = true
-	case runErr != nil:
-		var exitErr *exec.ExitError
-		if errors.As(runErr, &exitErr) {
-			exitCode = exitErr.ExitCode()
-		} else {
-			runFailErr = runErr
-		}
-	case receivedSig != nil:
-		// The command happened to finish on its own right as the signal
-		// arrived — still honor the signal for the caller's exit code.
-		exitCode = signalExitCode(receivedSig)
-		interrupted = true
-	}
-	return exitCode, interrupted, runFailErr
-}
-
-var runCmd = &cobra.Command{
-	Use:   "run [branch] -- <command> [args...]",
-	Short: "Run a command in a temporary cutting, then clear it away",
-	Long: `Take a temporary cutting, run the given command inside it, then
+	cmd := &cobra.Command{
+		Use:   "run [branch] -- <command> [args...]",
+		Short: "Run a command in a temporary cutting, then clear it away",
+		Long: `Take a temporary cutting, run the given command inside it, then
 clear it away when the command finishes (whether it succeeds or fails).
 
 Only the worktree directory is removed — no branch is created or deleted.
@@ -151,183 +68,117 @@ The --branch/-b flag is deprecated; use the positional branch argument shown
 above instead.
 
 The exit code of the command is propagated to the calling shell.`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		dash := cmd.Flags().ArgsLenAtDash()
-		if dash > 1 {
-			return fmt.Errorf("accepts at most 1 branch argument before \"--\", received %d", dash)
-		}
-		minArgs := 1
-		if dash == 1 {
-			minArgs = 2
-		}
-		if len(args) < minArgs {
-			return errors.New("requires a command to run after \"--\"")
-		}
-		return nil
-	},
-	Example: "  cuttings run -- make test\n  cuttings run feature/foo -- go test ./...\n" +
-		"  cuttings run feature/foo --remove-after -- go test ./...",
-	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		if len(args) > 0 {
-			return nil, cobra.ShellCompDirectiveNoFileComp
-		}
-		return completeBranches(cmd, args, toComplete)
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		var posBranch string
-		if dash := cmd.Flags().ArgsLenAtDash(); dash == 1 {
-			posBranch = args[0]
-			args = args[1:]
-		}
-
-		branch := runBranch
-		switch {
-		case posBranch != "" && branch != "":
-			return fmt.Errorf("cannot combine the positional branch argument %q with --branch %q; --branch is deprecated, use \"cuttings run %s -- ...\" instead", posBranch, branch, posBranch)
-		case posBranch != "":
-			branch = posBranch
-		}
-
-		cleanupOnSignal := deps.cfg.RunCleanupOnSignal
-
-		if cleanupOnSignal {
-			if cleaned, sweepErr := deps.wt.SweepOrphans(); sweepErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "warning: orphan sweep failed: %v\n", sweepErr)
-			} else {
-				for _, key := range cleaned {
-					_, _ = fmt.Fprintf(os.Stdout, "Cleaned up orphaned cutting from a previous run: %s\n", key)
-				}
+		Args: func(cmd *cobra.Command, args []string) error {
+			dash := cmd.Flags().ArgsLenAtDash()
+			if dash > 1 {
+				return fmt.Errorf("accepts at most 1 branch argument before \"--\", received %d", dash)
 			}
-		}
-
-		// sigCh is only ever written to when cleanupOnSignal is true; left
-		// unregistered otherwise so run falls back to plain defer-only cleanup
-		// (matching Go's default, uncaught signal disposition).
-		sigCh := make(chan os.Signal, 1)
-		if cleanupOnSignal {
-			signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
-			defer signal.Stop(sigCh)
-		}
-
-		var (
-			path            string
-			envBranch       string // value used for CUTTING_BRANCH env var
-			worktreeKey     string // key used to Remove the worktree on cleanup
-			reusingExisting bool   // true when --branch names a cutting that already exists
-			err             error
-		)
-
-		if branch == "" {
-			// No branch specified — detached HEAD at current branch's commit.
-			envBranch, err = deps.wt.CurrentBranch()
+			minArgs := 1
+			if dash == 1 {
+				minArgs = 2
+			}
+			if len(args) < minArgs {
+				return errors.New("requires a command to run after \"--\"")
+			}
+			return nil
+		},
+		Example: "  cuttings run -- make test\n  cuttings run feature/foo -- go test ./...\n" +
+			"  cuttings run feature/foo --remove-after -- go test ./...",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) > 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return d.completeBranches(cmd, args, toComplete)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch, args, err := splitBranchAndCommand(cmd, branchFlag, args)
 			if err != nil {
-				return fmt.Errorf("get current branch: %w", err)
+				return err
 			}
-			worktreeKey = fmt.Sprintf("cut-run-%d", time.Now().UnixNano())
 
-			_, _ = fmt.Fprintf(os.Stdout, "Creating temporary cutting at %q...\n", envBranch)
-			path, err = deps.wt.AddDetached(worktreeKey, runSource)
+			out, errOut := cmd.OutOrStdout(), cmd.ErrOrStderr()
+			cleanupOnSignal := d.cfg.RunCleanupOnSignal
+
+			provisioner := run.NewProvisioner(d.wt, d.locks, cleanupOnSignal, out, errOut)
+			provisioner.SweepOrphans()
+
+			// sigCh is only ever written to when cleanupOnSignal is true; left
+			// unregistered otherwise so run falls back to plain defer-only cleanup
+			// (matching Go's default, uncaught signal disposition).
+			sigCh := make(chan os.Signal, 1)
+			if cleanupOnSignal {
+				signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+				defer signal.Stop(sigCh)
+			}
+
+			plan, err := provisioner.Provision(run.Spec{
+				Branch:        branch,
+				Source:        source,
+				DefaultBranch: d.cfg.DefaultBranch,
+				RemoveAfter:   removeAfter,
+			})
 			if err != nil {
-				return fmt.Errorf("create cutting: %w", err)
+				return err
 			}
-		} else {
-			// Explicit branch.
-			envBranch = branch
-			worktreeKey = branch
 
-			if deps.wt.Exists(worktreeKey) {
-				reusingExisting = true
-				path = deps.wt.Path(worktreeKey)
-				_, _ = fmt.Fprintf(os.Stdout, "Using existing cutting for branch %q...\n", worktreeKey)
-			} else {
-				from := runSource
-				if from == "" {
-					from = deps.cfg.DefaultBranch
-				}
-				createBranch := !deps.wt.BranchExists(worktreeKey)
+			if plan.AutoRemove {
+				defer provisioner.Cleanup(plan)
+			}
 
-				_, _ = fmt.Fprintf(os.Stdout, "Creating temporary cutting for branch %q...\n", worktreeKey)
-				path, err = deps.wt.Add(worktreeKey, createBranch, from)
-				if err != nil {
-					return fmt.Errorf("create cutting: %w", err)
+			outcome, runErr := run.Invoke(d.runner, sigCh, plan, args)
+			if runErr != nil {
+				return runErr
+			}
+
+			// A reused cutting that didn't opt into --remove-after is never
+			// touched by the deferred cleanup; decide its fate here instead,
+			// once the command has actually completed (not merely been
+			// interrupted).
+			if plan.Reused && !plan.AutoRemove && !outcome.Interrupted {
+				if confirmRemoval(out, cmd.InOrStdin(), plan.Key) {
+					provisioner.RemoveReused(plan.Key)
+				} else {
+					_, _ = fmt.Fprintf(out, "Leaving cutting %q in place.\n", plan.Key)
 				}
 			}
-		}
 
-		// willAutoRemove decides whether this run's worktree gets the full
-		// temporary-worktree safety net (run lock, unconditional cleanup on
-		// return or signal). A freshly-created worktree always gets it; a
-		// reused existing cutting only opts in via --remove-after — without
-		// it, removal is instead decided by the post-run prompt below, and a
-		// signal or crash leaves the cutting untouched rather than deleting
-		// real, non-temporary work.
-		willAutoRemove := !reusingExisting || runRemoveAfter
-
-		if cleanupOnSignal && willAutoRemove {
-			if lockErr := deps.wt.Lock(worktreeKey); lockErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "warning: could not record run lock: %v\n", lockErr)
+			if outcome.ExitCode != 0 {
+				// The exit code IS the message here — the command the user ran
+				// already said whatever it had to say. Silence Cobra's error and
+				// usage output so a failing `cuttings run` looks exactly like
+				// running the command directly.
+				cmd.SilenceErrors = true
+				cmd.SilenceUsage = true
+				return &ExitCodeError{Code: outcome.ExitCode}
 			}
-		}
+			return nil
+		},
+	}
 
-		// exitCode is set when the command exits with a non-zero status so we
-		// can call os.Exit after the cleanup defer has already run.
-		var exitCode int
-
-		// This defer runs LAST (registered first) — propagate exit code after cleanup.
-		defer func() {
-			if exitCode != 0 {
-				exitFn(exitCode)
-			}
-		}()
-
-		if willAutoRemove {
-			// This defer runs FIRST (registered second) — always clean up the worktree.
-			defer func() {
-				_, _ = fmt.Fprintf(os.Stdout, "Cleaning up cutting...\n")
-				if removeErr := deps.wt.Remove(worktreeKey, false); removeErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: cleanup failed: %v\n", removeErr)
-				}
-				if cleanupOnSignal {
-					if unlockErr := deps.wt.Unlock(worktreeKey); unlockErr != nil {
-						_, _ = fmt.Fprintf(os.Stderr, "warning: could not remove run lock: %v\n", unlockErr)
-					}
-				}
-			}()
-		}
-
-		var (
-			interrupted bool
-			runFailErr  error
-		)
-		exitCode, interrupted, runFailErr = runAndExitCode(sigCh, path, envBranch, args)
-
-		// Reused cuttings that didn't opt into --remove-after are never
-		// touched by the defer above; decide their fate here instead, once the
-		// command has actually completed (not merely been interrupted).
-		if reusingExisting && !runRemoveAfter && !interrupted {
-			if confirmRemoval(worktreeKey) {
-				_, _ = fmt.Fprintf(os.Stdout, "Removing cutting %q...\n", worktreeKey)
-				if removeErr := deps.wt.Remove(worktreeKey, false); removeErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: cleanup failed: %v\n", removeErr)
-				}
-			} else {
-				_, _ = fmt.Fprintf(os.Stdout, "Leaving cutting %q in place.\n", worktreeKey)
-			}
-		}
-
-		if runFailErr != nil {
-			return runFailErr
-		}
-		return nil
-	},
+	cmd.Flags().StringVarP(&branchFlag, "branch", "b", "", "branch to create a worktree for (created if it does not exist; reused if it does)")
+	cmd.Flags().StringVarP(&source, "source", "s", "", "commit-ish to base the worktree on (default: HEAD)")
+	cmd.Flags().BoolVarP(&removeAfter, "remove-after", "r", false, "when reusing an existing branch's cutting, remove it after the command finishes without prompting")
+	_ = cmd.RegisterFlagCompletionFunc("branch", d.completeBranches)
+	_ = cmd.RegisterFlagCompletionFunc("source", d.completeBranches)
+	_ = cmd.Flags().MarkDeprecated("branch", "use the positional branch argument instead, e.g. \"cuttings run <branch> -- <command>\"")
+	return cmd
 }
 
-func init() {
-	rootCmd.AddCommand(runCmd)
-	runCmd.Flags().StringVarP(&runBranch, "branch", "b", "", "branch to create a worktree for (created if it does not exist; reused if it does)")
-	runCmd.Flags().StringVarP(&runSource, "source", "s", "", "commit-ish to base the worktree on (default: HEAD)")
-	runCmd.Flags().BoolVarP(&runRemoveAfter, "remove-after", "r", false, "when reusing an existing branch's cutting, remove it after the command finishes without prompting")
-	_ = runCmd.RegisterFlagCompletionFunc("branch", completeBranches)
-	_ = runCmd.RegisterFlagCompletionFunc("source", completeBranches)
-	_ = runCmd.Flags().MarkDeprecated("branch", "use the positional branch argument instead, e.g. \"cuttings run <branch> -- <command>\"")
+// splitBranchAndCommand separates an optional branch argument (everything
+// before "--") from the command to run, reconciling it with the deprecated
+// --branch flag.
+func splitBranchAndCommand(cmd *cobra.Command, branchFlag string, args []string) (branch string, command []string, err error) {
+	var posBranch string
+	if dash := cmd.Flags().ArgsLenAtDash(); dash == 1 {
+		posBranch = args[0]
+		args = args[1:]
+	}
+
+	switch {
+	case posBranch != "" && branchFlag != "":
+		return "", nil, fmt.Errorf("cannot combine the positional branch argument %q with --branch %q; --branch is deprecated, use \"cuttings run %s -- ...\" instead", posBranch, branchFlag, posBranch)
+	case posBranch != "":
+		return posBranch, args, nil
+	}
+	return branchFlag, args, nil
 }

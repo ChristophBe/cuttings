@@ -29,10 +29,12 @@ go test ./...               # run tests
 ```
 cuttings/
 ├── cmd/                   # Cobra command definitions (thin layer only)
-│   └── deps.go            # WorktreeManager and ShellSpawner interface definitions
+│   └── deps.go            # Deps plus the interfaces the cmd layer depends on
 ├── internal/
 │   ├── config/            # Configuration loading (returns *Config struct)
 │   ├── worktree/          # Git worktree operations (*Manager struct)
+│   ├── run/               # "cuttings run" logic: provisioning, cleanup policy
+│   ├── runlock/           # Run locks for orphan detection (*Store struct)
 │   └── shell/             # Shell spawning (*Spawner struct)
 ├── e2e/                   # Black-box CLI tests (build tag: e2e)
 ├── docs/                  # Feature and design documentation
@@ -47,8 +49,13 @@ cuttings/
 
 **Rules:**
 - Business logic lives in `internal/`. The `cmd/` layer only parses arguments, calls internal methods via interfaces, and formats output.
-- No package-level `init()` side-effects beyond registering Cobra commands.
-- No global mutable state outside of Cobra command variables and the `deps` struct in `cmd/deps.go`.
+- No package-level `init()` side-effects. Commands are built by `newXCmd(d *Deps)`
+  constructors and assembled in `newRootCmd`, so a command tree can be built more than
+  once per process — which is what lets tests build an isolated tree and run in parallel.
+- No global mutable state: flags live in the closure of the command that declares them,
+  and dependencies travel through the `*Deps` a command is built with.
+- Commands write to `cmd.OutOrStdout()` / `cmd.ErrOrStderr()`, never to `os.Stdout` or
+  `os.Stderr` directly, so their output can be captured in a test.
 
 ---
 

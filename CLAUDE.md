@@ -19,7 +19,10 @@ network or GitHub API calls anywhere in the codebase.
   `internal/`. Never bypass `cmd/deps.go`'s wiring, which happens once in `PersistentPreRunE` in
   `cmd/root.go`.
 - **Error handling.** Wrap errors with `fmt.Errorf("...: %w", err)`. Return errors from `RunE`;
-  never call `os.Exit` outside of `cmd/root.go`'s `Execute` and the `exitFn` seam in `cmd/run.go`.
+  never call `os.Exit` outside of `cmd/root.go`'s `Execute`. A command that needs a specific
+  exit code returns an `*ExitCodeError`, which `Execute` maps — so deferred cleanup still runs.
+- **Output.** Commands write to `cmd.OutOrStdout()` / `cmd.ErrOrStderr()`, never straight to
+  `os.Stdout` / `os.Stderr`, so tests can capture what a command prints.
 - **E2E coverage is mandatory for behavior changes.** Any change that adds or modifies a command,
   flag, output format, exit code, or config key MUST include:
   1. Unit tests next to the changed code (`cmd/*_test.go`, `internal/**/*_test.go`), and
@@ -45,10 +48,15 @@ Run, in order, and fix any failures before reporting completion:
 
 ## Repo map (pointers — see CONTRIBUTING.md's Project Layout for the full tree)
 
-- `cmd/deps.go` — the interfaces the `cmd` layer depends on (`WorktreeManager`, `ShellSpawner`,
-  `CommandRunner`); the single wiring point is `PersistentPreRunE` in `cmd/root.go`.
-- `internal/worktree`, `internal/shell`, `internal/config` — business logic, each independently
-  unit-tested.
+- `cmd/deps.go` — the `Deps` struct and the interfaces the `cmd` layer depends on
+  (`WorktreeManager`, `ShellSpawner`, `CommandRunner`); the single wiring point is
+  `Deps.resolve`, called from `PersistentPreRunE` in `cmd/root.go`. Commands are built by
+  `newXCmd(d *Deps)` constructors and assembled in `newRootCmd` — there are no command or
+  flag globals, and no `init()` registration.
+- `internal/worktree`, `internal/run`, `internal/runlock`, `internal/shell`, `internal/config`
+  — business logic, each independently unit-tested. `internal/run` owns what `cuttings run`
+  does (provisioning, cleanup policy, signal-aware execution); `cmd/run.go` only parses
+  arguments and prints.
 - `e2e/` — black-box CLI tests, gated by the `e2e` build tag so `go test ./...` and pre-commit
   skip them by default. Run with `make e2e`. `e2e/main_test.go` builds the binary once;
   `e2e/harness_test.go` provides the hermetic subprocess-invocation helper; `e2e/repo_test.go`

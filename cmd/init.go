@@ -2,7 +2,6 @@
 Copyright © 2026 Christoph Becker
 */
 
-// Package cmd contains the Cobra command definitions for the cuttings CLI.
 package cmd
 
 import (
@@ -14,66 +13,46 @@ import (
 	"github.com/ChristophBe/cuttings/internal/config"
 )
 
-var overwrite bool
+func newInitCmd(d *Deps) *cobra.Command {
+	var overwrite bool
 
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Create a .cuttings.yaml config file in the repository root",
-	Long: `Create a .cuttings.yaml configuration file in the git repository root.
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Create a .cuttings.yaml config file in the repository root",
+		Long: fmt.Sprintf(`Create a .cuttings.yaml configuration file in the git repository root.
 
 The file holds project-level settings such as the worktrees storage directory
 and the default branch to fork from when creating new cuttings.
 
 Settings can also be overridden at runtime via environment variables:
 
-  CUTTINGS_WORKTREES_DIR         override worktrees_dir
-  CUTTINGS_DEFAULT_BRANCH        override default_branch
-  CUTTINGS_RUN_CLEANUP_ON_SIGNAL override run_cleanup_on_signal
+  %-30s override %s
+  %-30s override %s
+  %-30s override %s
 
 The config file is intended to be committed to the repository so the entire
 team shares the same settings. Use --overwrite to replace an existing file.`,
-	Example: "  cuttings init\n  cuttings init --overwrite",
-	RunE: func(_ *cobra.Command, _ []string) error {
-		path := deps.cfg.FilePath()
+			config.EnvKey(config.KeyWorktreesDir), config.KeyWorktreesDir,
+			config.EnvKey(config.KeyDefaultBranch), config.KeyDefaultBranch,
+			config.EnvKey(config.KeyRunCleanupOnSignal), config.KeyRunCleanupOnSignal,
+		),
+		Example: "  cuttings init\n  cuttings init --overwrite",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			path := d.cfg.FilePath()
 
-		if _, err := os.Stat(path); err == nil && !overwrite {
-			return fmt.Errorf("config file already exists at %s — use --overwrite to replace it", path)
-		}
+			if _, err := os.Stat(path); err == nil && !overwrite {
+				return fmt.Errorf("config file already exists at %s — use --overwrite to replace it", path)
+			}
 
-		content := fmt.Sprintf(`# cuttings configuration
-# https://github.com/ChristophBe/cuttings
+			if err := os.WriteFile(path, config.DefaultFileContents(), 0o644); err != nil { //nolint:gosec // 0644 is appropriate for a committed config file
+				return fmt.Errorf("write config file: %w", err)
+			}
 
-# worktrees_dir: directory (relative to repo root) where worktrees are stored.
-# Override with env var: CUTTINGS_WORKTREES_DIR
-%s: %s
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", path)
+			return nil
+		},
+	}
 
-# default_branch: branch to fork from when running "cuttings new" without --source.
-# Leave empty to use HEAD.
-# Override with env var: CUTTINGS_DEFAULT_BRANCH
-%s: %q
-
-# run_cleanup_on_signal: whether "cuttings run" installs signal handling
-# (SIGINT/SIGTERM/SIGHUP) and orphan detection (SIGKILL/crash) so its
-# temporary worktree is still cleaned up when the process is killed. Set to
-# false to fall back to plain defer-only cleanup.
-# Override with env var: CUTTINGS_RUN_CLEANUP_ON_SIGNAL
-%s: %t
-`,
-			config.KeyWorktreesDir, config.DefaultWorktreesDir,
-			config.KeyDefaultBranch, config.DefaultDefaultBranch,
-			config.KeyRunCleanupOnSignal, config.DefaultRunCleanupOnSignal,
-		)
-
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil { //nolint:gosec // 0644 is appropriate for a committed config file
-			return fmt.Errorf("write config file: %w", err)
-		}
-
-		_, _ = fmt.Fprintf(os.Stdout, "Created %s\n", path)
-		return nil
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(initCmd)
-	initCmd.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "overwrite an existing config file")
+	cmd.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "overwrite an existing config file")
+	return cmd
 }

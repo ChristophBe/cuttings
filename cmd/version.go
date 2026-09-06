@@ -19,16 +19,16 @@ var (
 	BuildTime = "unknown"
 )
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version and build time",
-	// Override the parent's PersistentPreRunE so this command works outside any git repo.
-	PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return nil },
-	Run: func(_ *cobra.Command, _ []string) {
-		fmt.Printf("cuttings %s (built %s)\n", Version, BuildTime)
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
+// newVersionCmd takes no Deps: it must work outside a git repository, so it
+// never touches the worktree manager or config.
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the version and build time",
+		// Override the parent's PersistentPreRunE so this command works outside any git repo.
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return nil },
+		Run: func(cmd *cobra.Command, _ []string) {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "cuttings %s (built %s)\n", Version, BuildTime)
+		},
+	}
 }

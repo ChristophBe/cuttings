@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -67,6 +68,47 @@ func (c *Config) FilePath() string {
 	return filepath.Join(c.repoRoot, ConfigFileName)
 }
 
+// EnvPrefix is the prefix of the environment variables that override
+// .cuttings.yaml values.
+const EnvPrefix = "CUTTINGS_"
+
+// EnvKey returns the environment variable that overrides the given config
+// key, e.g. EnvKey(KeyWorktreesDir) == "CUTTINGS_WORKTREES_DIR".
+func EnvKey(key string) string {
+	return EnvPrefix + strings.ToUpper(key)
+}
+
+// DefaultFileContents returns the contents of a freshly initialized
+// .cuttings.yaml: every recognized key at its default value, documented
+// alongside the environment variable that overrides it. It lives here rather
+// than in the init command so the template cannot drift from the keys and
+// defaults it describes.
+func DefaultFileContents() []byte {
+	return []byte(fmt.Sprintf(`# cuttings configuration
+# https://github.com/ChristophBe/cuttings
+
+# %[1]s: directory (relative to repo root) where worktrees are stored.
+# Override with env var: %[2]s
+%[1]s: %[3]s
+
+# %[4]s: branch to fork from when running "cuttings new" without --source.
+# Leave empty to use HEAD.
+# Override with env var: %[5]s
+%[4]s: %[6]q
+
+# %[7]s: whether "cuttings run" installs signal handling
+# (SIGINT/SIGTERM/SIGHUP) and orphan detection (SIGKILL/crash) so its
+# temporary worktree is still cleaned up when the process is killed. Set to
+# false to fall back to plain defer-only cleanup.
+# Override with env var: %[8]s
+%[7]s: %[9]t
+`,
+		KeyWorktreesDir, EnvKey(KeyWorktreesDir), DefaultWorktreesDir,
+		KeyDefaultBranch, EnvKey(KeyDefaultBranch), DefaultDefaultBranch,
+		KeyRunCleanupOnSignal, EnvKey(KeyRunCleanupOnSignal), DefaultRunCleanupOnSignal,
+	))
+}
+
 // fileConfig mirrors the recognized .cuttings.yaml keys. Pointer fields let
 // Load distinguish "key absent" (fall back to default) from "key present".
 type fileConfig struct {
@@ -108,16 +150,17 @@ func Load(repoRoot string) (*Config, error) {
 		}
 	}
 
-	if s, ok := os.LookupEnv("CUTTINGS_WORKTREES_DIR"); ok {
+	if s, ok := os.LookupEnv(EnvKey(KeyWorktreesDir)); ok {
 		cfg.WorktreesDir = s
 	}
-	if s, ok := os.LookupEnv("CUTTINGS_DEFAULT_BRANCH"); ok {
+	if s, ok := os.LookupEnv(EnvKey(KeyDefaultBranch)); ok {
 		cfg.DefaultBranch = s
 	}
-	if s, ok := os.LookupEnv("CUTTINGS_RUN_CLEANUP_ON_SIGNAL"); ok {
+	cleanupEnv := EnvKey(KeyRunCleanupOnSignal)
+	if s, ok := os.LookupEnv(cleanupEnv); ok {
 		b, err := strconv.ParseBool(s)
 		if err != nil {
-			return nil, fmt.Errorf("invalid CUTTINGS_RUN_CLEANUP_ON_SIGNAL value %q: %w", s, err)
+			return nil, fmt.Errorf("invalid %s value %q: %w", cleanupEnv, s, err)
 		}
 		cfg.RunCleanupOnSignal = b
 	}
