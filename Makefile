@@ -8,7 +8,7 @@ LDFLAGS    := -s -w \
               -X 'github.com/ChristophBe/cuttings/cmd.Version=$(VERSION)' \
               -X 'github.com/ChristophBe/cuttings/cmd.BuildTime=$(BUILD_TIME)'
 
-.PHONY: build install test e2e lint clean tag generate-docs site site-dev help
+.PHONY: build install test e2e e2e-stress lint clean tag generate-docs site site-dev help
 
 ## build: compile the binary to ./bin/cuttings
 build:
@@ -25,6 +25,10 @@ test:
 ## e2e: run end-to-end CLI tests (builds the binary and exercises it as a black box)
 e2e:
 	go test -tags=e2e -count=1 ./e2e/...
+
+## e2e-stress: run the e2e tests repeatedly in random order, to shake out flaky tests
+e2e-stress:
+	go test -tags=e2e -count=5 -shuffle=on ./e2e/...
 
 ## lint: run golangci-lint
 lint:

@@ -5,11 +5,14 @@ package e2e
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -26,19 +29,32 @@ var gitEnvVars = []string{
 	"GIT_COMMON_DIR",
 }
 
+// gitEnv returns this process's environment with the gitEnvVars removed. It
+// builds a fresh slice rather than unsetting the variables globally: runGit is
+// called from nearly every test, and a helper that mutates process-wide state
+// is a hazard waiting to be tripped over.
+func gitEnv() []string {
+	var env []string
+	for _, e := range os.Environ() {
+		name, _, _ := strings.Cut(e, "=")
+		if slices.Contains(gitEnvVars, name) {
+			continue
+		}
+		env = append(env, e)
+	}
+	return env
+}
+
 // runGit runs git with args in dir, failing the test on error. It is used
 // for fixture setup and for verifying repository state directly — never for
 // invoking the cuttings binary itself (use harness.run for that), so
 // assertions stay genuinely black-box.
 func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	for _, v := range gitEnvVars {
-		t.Setenv(v, "")
-		_ = os.Unsetenv(v)
-	}
 	//nolint:gosec // args are test-controlled literals, not external input.
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
+	cmd.Env = gitEnv()
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
@@ -113,6 +129,44 @@ func worktreePaths(t *testing.T, dir string) []string {
 	return paths
 }
 
+// requireWorktrees fails the test unless the repo at dir has exactly the given
+// worktrees, naming the paths that were unexpectedly added or removed. Tests
+// compare sets rather than counts so a failure says which worktree moved — the
+// question anyone debugging one of these actually has.
+func requireWorktrees(t *testing.T, dir string, want []string) {
+	t.Helper()
+	got := worktreePaths(t, dir)
+
+	var added, missing []string
+	for _, p := range got {
+		if !containsPath(want, p) {
+			added = append(added, p)
+		}
+	}
+	for _, p := range want {
+		if !containsPath(got, p) {
+			missing = append(missing, p)
+		}
+	}
+	if len(added) == 0 && len(missing) == 0 {
+		return
+	}
+	t.Fatalf("unexpected worktrees:\n  unexpectedly present: %v\n  unexpectedly gone:    %v\n  (have %v, want %v)",
+		added, missing, got, want)
+}
+
+// without returns paths with p removed, for building the expected worktree set
+// after a cutting is removed.
+func without(paths []string, p string) []string {
+	var out []string
+	for _, candidate := range paths {
+		if candidate != p {
+			out = append(out, candidate)
+		}
+	}
+	return out
+}
+
 // containsPath reports whether path is present in paths.
 func containsPath(paths []string, path string) bool {
 	for _, p := range paths {
@@ -147,26 +201,6 @@ func readFile(t *testing.T, path string) string {
 	return string(content)
 }
 
-// waitForWorktreeCount polls `git worktree list` in dir until it reports
-// exactly want entries, or fails the test after timeout. Used to synchronize
-// with a background `cuttings run` invocation (started via harness.start)
-// without racing its output.
-func waitForWorktreeCount(t *testing.T, dir string, want int, timeout time.Duration) []string {
-	t.Helper()
-	deadline := time.Now().Add(timeout)
-	var paths []string
-	for {
-		paths = worktreePaths(t, dir)
-		if len(paths) == want {
-			return paths
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %d worktrees, got %d: %v", want, len(paths), paths)
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-}
-
 // waitForFile polls for path to exist, or fails the test after timeout. Used
 // to synchronize with a background `cuttings run` invocation (started via
 // harness.start) whose command touches a marker file once running — needed
@@ -196,7 +230,7 @@ func gitCommonDir(t *testing.T, dir string) string {
 }
 
 // runLockFileName derives the same filesystem-safe file name that
-// internal/worktree.Manager.Lock uses for a run lock keyed by key: the first
+// internal/runlock.Store.Acquire uses for a run lock keyed by key: the first
 // 8 bytes of its SHA-256 hash, hex-encoded, with a ".json" suffix.
 func runLockFileName(key string) string {
 	sum := sha256.Sum256([]byte(key))
@@ -222,15 +256,28 @@ func writeOrphanRunLock(t *testing.T, dir, key, path string) string {
 	return lockPath
 }
 
-// deadPID returns the PID of a process that has already exited, for tests
-// that need a PID guaranteed not to be alive (orphan-detection fixtures).
+// deadPID returns the PID of a process that has already exited, for tests that
+// need a PID guaranteed not to be alive (orphan-detection fixtures).
+//
+// A reaped PID is immediately available for reuse, so the obvious version of
+// this — run `true`, take its PID — can hand back a PID the OS has already
+// recycled, which would make the orphan sweep skip the seeded lock. Confirm the
+// PID really is gone, and try again if the kernel got there first.
 func deadPID(t *testing.T) int {
 	t.Helper()
-	cmd := exec.Command("true")
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("run true: %v", err)
+	for attempt := 0; attempt < 10; attempt++ {
+		cmd := exec.Command("true")
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("run true: %v", err)
+		}
+		pid := cmd.Process.Pid
+		// Signal 0 performs no action but reports whether the process exists.
+		if err := syscall.Kill(pid, 0); errors.Is(err, syscall.ESRCH) {
+			return pid
+		}
 	}
-	return cmd.Process.Pid
+	t.Fatal("could not obtain a PID that is definitely not in use")
+	return 0
 }
 
 // signalTerminatedExitCode is the exec.ExitError.ExitCode() value Go reports

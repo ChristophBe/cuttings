@@ -12,25 +12,23 @@ import (
 
 // TestRun_SignalCleanup_SIGINT verifies that a real SIGINT delivered to
 // `cuttings run` while its command is executing still cleans up the
-// temporary worktree (via the signal-aware cancellation added in
-// cmd/run.go), and reports the shell exit-code convention (128+signum).
+// temporary worktree (via the signal-aware cancellation in internal/run),
+// and reports the shell exit-code convention (128+signum).
 func TestRun_SignalCleanup_SIGINT(t *testing.T) {
 	dir := initRepo(t)
 	h := newHarness(t, dir)
 	before := worktreePaths(t, dir)
 
-	proc := h.start("run", "--", "sleep", "30")
-	waitForWorktreeCount(t, dir, len(before)+1, 5*time.Second)
+	command, started := blockingCommand(t)
+	proc := h.start(append([]string{"run", "--"}, command...)...)
+	waitForFile(t, started, 5*time.Second)
 	proc.signal(syscall.SIGINT)
 	r := proc.wait()
 
 	requireExitCode(t, r, 130) // 128 + SIGINT(2)
 	requireContains(t, r.stdout, "Cleaning up cutting")
 
-	after := worktreePaths(t, dir)
-	if len(after) != len(before) {
-		t.Fatalf("worktree not cleaned up after SIGINT: before=%v after=%v", before, after)
-	}
+	requireWorktrees(t, dir, before)
 }
 
 // TestRun_SignalCleanup_SIGTERM mirrors TestRun_SignalCleanup_SIGINT for
@@ -40,18 +38,16 @@ func TestRun_SignalCleanup_SIGTERM(t *testing.T) {
 	h := newHarness(t, dir)
 	before := worktreePaths(t, dir)
 
-	proc := h.start("run", "--", "sleep", "30")
-	waitForWorktreeCount(t, dir, len(before)+1, 5*time.Second)
+	command, started := blockingCommand(t)
+	proc := h.start(append([]string{"run", "--"}, command...)...)
+	waitForFile(t, started, 5*time.Second)
 	proc.signal(syscall.SIGTERM)
 	r := proc.wait()
 
 	requireExitCode(t, r, 143) // 128 + SIGTERM(15)
 	requireContains(t, r.stdout, "Cleaning up cutting")
 
-	after := worktreePaths(t, dir)
-	if len(after) != len(before) {
-		t.Fatalf("worktree not cleaned up after SIGTERM: before=%v after=%v", before, after)
-	}
+	requireWorktrees(t, dir, before)
 }
 
 // TestRun_CleanupOnSignalDisabled_SignalLeavesOrphan verifies that with
@@ -64,13 +60,10 @@ func TestRun_CleanupOnSignalDisabled_SignalLeavesOrphan(t *testing.T) {
 	h := newHarness(t, dir).withEnv("CUTTINGS_RUN_CLEANUP_ON_SIGNAL", "false")
 	before := worktreePaths(t, dir)
 
-	// A short sleep: with no signal handling installed, SIGINT kills
-	// `cuttings` immediately, but the orphaned "sleep" grandchild inherits
-	// the same stdout pipe cuttings was using — proc.wait() below can't
-	// see EOF (and so can't return) until that pipe's write end closes, which
-	// only happens once "sleep" itself exits.
-	proc := h.start("run", "--", "sleep", "2")
-	after := waitForWorktreeCount(t, dir, len(before)+1, 5*time.Second)
+	command, started := blockingCommand(t)
+	proc := h.start(append([]string{"run", "--"}, command...)...)
+	waitForFile(t, started, 5*time.Second)
+	orphaned := worktreePaths(t, dir)
 	proc.signal(syscall.SIGINT)
 	r := proc.wait()
 
@@ -79,14 +72,12 @@ func TestRun_CleanupOnSignalDisabled_SignalLeavesOrphan(t *testing.T) {
 	}
 	requireNotContains(t, r.stdout, "Cleaning up cutting")
 
-	stillThere := worktreePaths(t, dir)
-	if len(stillThere) != len(after) {
-		t.Fatalf("expected the worktree to remain orphaned when cleanup-on-signal is disabled: before-signal=%v after-signal=%v", after, stillThere)
-	}
+	// The worktree that existed when the signal was sent must still be there.
+	requireWorktrees(t, dir, orphaned)
 
 	// Tidy up the orphan directly via git so it doesn't leak state into other
 	// tests (none currently share this repo dir, but keep the fixture clean).
-	for _, p := range stillThere {
+	for _, p := range orphaned {
 		if !containsPath(before, p) {
 			runGit(t, dir, "worktree", "remove", "--force", p)
 		}
@@ -96,8 +87,9 @@ func TestRun_CleanupOnSignalDisabled_SignalLeavesOrphan(t *testing.T) {
 // TestRun_OrphanSweep_CleansUpOnNextRun seeds a run-lock file (as Lock would
 // write) pointing at an existing worktree, owned by a PID that's no longer
 // alive, and verifies the next `cuttings run` invocation's orphan sweep
-// (SweepOrphans, called at the top of RunE when run_cleanup_on_signal is
-// enabled) removes both the stale worktree and its lock file.
+// (run.Provisioner.SweepOrphans, called before provisioning when
+// run_cleanup_on_signal is enabled) removes both the stale worktree and its
+// lock file.
 func TestRun_OrphanSweep_CleansUpOnNextRun(t *testing.T) {
 	dir := initRepo(t)
 	orphanKey := "orphan-key"
@@ -154,23 +146,16 @@ func TestRun_ExistingBranch_SignalLeavesInPlace(t *testing.T) {
 	newCutting(t, h, "feature/foo")
 	before := worktreePaths(t, dir)
 
-	// The marker lives outside the worktree (touching a file inside it would
-	// leave it dirty, which would itself block a later `git worktree remove`
-	// — that's the exact "uncommitted changes block removal" limitation
-	// documented in docs/features.md, not something this test wants to hit).
-	marker := filepath.Join(t.TempDir(), "started")
-	proc := h.start("run", "--branch", "feature/foo", "--", "sh", "-c", "touch "+marker+"; sleep 30")
-	waitForFile(t, marker, 5*time.Second)
+	command, started := blockingCommand(t)
+	proc := h.start(append([]string{"run", "--branch", "feature/foo", "--"}, command...)...)
+	waitForFile(t, started, 5*time.Second)
 	proc.signal(syscall.SIGINT)
 	r := proc.wait()
 
 	requireExitCode(t, r, 130) // 128 + SIGINT(2)
 	requireNotContains(t, r.stdout, "Remove cutting")
 
-	after := worktreePaths(t, dir)
-	if len(after) != len(before) {
-		t.Fatalf("expected the reused cutting to survive SIGINT: before=%v after=%v", before, after)
-	}
+	requireWorktrees(t, dir, before)
 }
 
 // TestRun_ExistingBranch_RemoveAfterFlag_SignalStillCleansUp verifies the
@@ -182,22 +167,19 @@ func TestRun_ExistingBranch_RemoveAfterFlag_SignalStillCleansUp(t *testing.T) {
 	h := newHarness(t, dir)
 	newCutting(t, h, "feature/foo")
 	before := worktreePaths(t, dir)
+	// Resolve while it still exists — the point of the test is that it won't.
+	cuttingPath := realPath(t, filepath.Join(dir, ".worktrees", "feature", "foo"))
 
-	// See the comment in TestRun_ExistingBranch_SignalLeavesInPlace: the
-	// marker must live outside the worktree so it stays clean and removable.
-	marker := filepath.Join(t.TempDir(), "started")
-	proc := h.start("run", "--branch", "feature/foo", "--remove-after", "--", "sh", "-c", "touch "+marker+"; sleep 30")
-	waitForFile(t, marker, 5*time.Second)
+	command, started := blockingCommand(t)
+	proc := h.start(append([]string{"run", "--branch", "feature/foo", "--remove-after", "--"}, command...)...)
+	waitForFile(t, started, 5*time.Second)
 	proc.signal(syscall.SIGINT)
 	r := proc.wait()
 
 	requireExitCode(t, r, 130) // 128 + SIGINT(2)
 	requireContains(t, r.stdout, "Cleaning up cutting")
 
-	after := worktreePaths(t, dir)
-	if len(after) != len(before)-1 {
-		t.Fatalf("expected the reused cutting to be removed after SIGINT with --remove-after: before=%v after=%v", before, after)
-	}
+	requireWorktrees(t, dir, without(before, cuttingPath))
 	if !branchExists(t, dir, "feature/foo") {
 		t.Fatalf("expected branch feature/foo to be preserved (only the worktree is removed)")
 	}
