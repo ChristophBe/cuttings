@@ -86,6 +86,15 @@ cuttings/
 - Black-box CLI tests live in `e2e/` and exercise the compiled `cuttings` binary as a subprocess against real, throwaway git repositories — not the Go API directly. `e2e/main_test.go`'s `TestMain` builds the binary once and reuses it across the suite.
 - They are gated behind the `e2e` build tag (`//go:build e2e`), so plain `go build ./...`, `go vet ./...`, and `go test ./...` (including the pre-commit `go-test` hook) skip them automatically. Run them explicitly with `make e2e` (or `go test -tags=e2e ./e2e/...`).
 - **Every new command, flag, or behavior change must include an e2e scenario in `e2e/`, in addition to unit tests for the underlying `internal/` logic and `cmd/` `RunE` wiring.**
+- e2e tests must never synchronize on a clock or on a side effect that happens *before* the thing
+  they are waiting for. `git worktree add` registers a worktree before it has finished creating
+  it, so polling for the worktree can signal a `cuttings run` mid-add. Use `blockingCommand` from
+  `e2e/fixtures_test.go`: the command it returns creates a marker file once it is actually
+  running — wait for that marker with `waitForFile` — and keeps running until the test's temp
+  directory is removed, so nothing survives the test and no deadline can be missed.
+- If a test looks flaky, reproduce it with `make e2e-stress` (5 runs in random order) rather than
+  re-running `make e2e` and hoping. A flake that reproduces once in four runs is invisible to a
+  single run but obvious across five.
 - e2e tests must stay hermetic: each test gets its own throwaway repo and an isolated `$HOME` via the `harness` helper in `e2e/harness_test.go` — never rely on the developer's or CI runner's real environment.
 - Commands that spawn an interactive shell (`new`, `shell`) replace the process via `syscall.Exec`, so a real shell would hang waiting for input. Set `SHELL` to the fixture at `e2e/testdata/fakeshell.sh` (a non-interactive script that echoes the injected env vars and exits) when exercising them — see `fakeShellPath()` in `e2e/repo_test.go`.
 
@@ -244,6 +253,7 @@ corresponding e2e scenario in `e2e/`.
 | `make install`| Install to `$GOPATH/bin`             |
 | `make test`   | Run all unit tests                   |
 | `make e2e`    | Run end-to-end CLI tests             |
+| `make e2e-stress` | Run the e2e tests 5× in random order, to shake out flaky tests |
 | `make lint`   | Run golangci-lint                    |
 | `make generate-docs` | Regenerate the command reference in `docs/features.md` |
 | `make clean`  | Remove build artefacts               |

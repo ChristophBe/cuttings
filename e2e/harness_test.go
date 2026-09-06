@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -100,14 +101,37 @@ func (h *harness) runWithStdin(stdin string, args ...string) result {
 // harness.start, so the test can interact with it (typically: send a
 // signal) before collecting its result with wait.
 type asyncRun struct {
-	t      *testing.T
-	cmd    *exec.Cmd
-	stdout *bytes.Buffer
-	stderr *bytes.Buffer
+	t   *testing.T
+	cmd *exec.Cmd
+	// stdoutPath and stderrPath are files the child writes to directly. See
+	// start for why they are files rather than in-memory buffers.
+	stdoutPath string
+	stderrPath string
+}
+
+// outputFile creates a file for a background process to write to. It must be a
+// real *os.File — see start.
+func outputFile(t *testing.T, dir, name string) *os.File {
+	t.Helper()
+	f, err := os.Create(filepath.Join(dir, name)) //nolint:gosec // dir is a test temp dir.
+	if err != nil {
+		t.Fatalf("create %s: %v", name, err)
+	}
+	t.Cleanup(func() { _ = f.Close() })
+	return f
 }
 
 // start begins running the cuttings binary with args in the background
 // and returns immediately, without waiting for it to exit.
+//
+// The child's output goes to files rather than to bytes.Buffers, and that
+// choice is load-bearing. os/exec only hands a descriptor straight to the child
+// when the writer is an *os.File; for anything else it inserts a pipe and
+// copying goroutines that Wait blocks on. A command run inside a cutting can
+// leave grandchildren holding the write end of that pipe long after cuttings
+// itself has exited (a shell that spawned a background sleep, say), and wait()
+// would then block on those strangers instead of on the process under test.
+// Writing to files keeps wait() a question strictly about cuttings.
 func (h *harness) start(args ...string) *asyncRun {
 	h.t.Helper()
 
@@ -116,15 +140,17 @@ func (h *harness) start(args ...string) *asyncRun {
 	cmd.Dir = h.dir
 	cmd.Env = h.buildEnv()
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	outDir := h.t.TempDir()
+	stdout := outputFile(h.t, outDir, "stdout")
+	stderr := outputFile(h.t, outDir, "stderr")
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	if err := cmd.Start(); err != nil {
 		h.t.Fatalf("start %v: %v", args, err)
 	}
 
-	return &asyncRun{t: h.t, cmd: cmd, stdout: &stdout, stderr: &stderr}
+	return &asyncRun{t: h.t, cmd: cmd, stdoutPath: stdout.Name(), stderrPath: stderr.Name()}
 }
 
 // signal sends sig to the running process.
@@ -136,14 +162,18 @@ func (r *asyncRun) signal(sig os.Signal) {
 }
 
 // wait blocks until the process exits and returns its result. Only safe to
-// call once, and only after the process has actually started (i.e. after
-// start returned) — stdout/stderr are read here, once exec.Cmd guarantees
-// the output-copying goroutines it started internally have finished.
+// call once, and only after the process has actually started (i.e. after start
+// returned). It returns as soon as cuttings itself is gone — see start for why
+// that is not true of the obvious in-memory implementation.
 func (r *asyncRun) wait() result {
 	r.t.Helper()
 	runErr := r.cmd.Wait()
 	exitCode := exitCodeFromErr(r.t, runErr)
-	return result{stdout: r.stdout.String(), stderr: r.stderr.String(), exitCode: exitCode}
+	return result{
+		stdout:   readFile(r.t, r.stdoutPath),
+		stderr:   readFile(r.t, r.stderrPath),
+		exitCode: exitCode,
+	}
 }
 
 // exitCodeFromErr extracts a process exit code from the error returned by
