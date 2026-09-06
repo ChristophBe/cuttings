@@ -4,13 +4,11 @@ Copyright © 2026 Christoph Becker
 package worktree_test
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ChristophBe/cuttings/internal/worktree"
 )
@@ -39,18 +37,24 @@ var gitEnvVars = []string{
 	"GIT_COMMON_DIR",
 }
 
-func initRepo(t *testing.T) string {
+// clearGitEnv clears the git environment variables that are set when running
+// inside a git hook (as pre-commit does), so a test sees only the repository it
+// created. Without it, a test can inherit GIT_DIR from the hook and silently
+// operate on the real repository.
+func clearGitEnv(t *testing.T) {
 	t.Helper()
-	dir := t.TempDir()
-
-	// Clear git hook environment variables so tests run correctly from within
-	// a pre-commit hook (which sets GIT_DIR, GIT_INDEX_FILE, etc.).
 	for _, v := range gitEnvVars {
 		t.Setenv(v, "")
 		if err := os.Unsetenv(v); err != nil {
 			t.Fatalf("unsetenv %s: %v", v, err)
 		}
 	}
+}
+
+func initRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	clearGitEnv(t)
 
 	run := func(args ...string) {
 		t.Helper()
@@ -621,191 +625,70 @@ func TestExists(t *testing.T) {
 // runLocksDir mirrors the package-private layout (<git-common-dir>/cuttings/run-locks)
 // so tests can inspect or seed lock files without exporting internals. For a
 // freshly initRepo'd, non-linked repository the common dir is simply <dir>/.git.
-func runLocksDir(dir string) string {
-	return filepath.Join(dir, ".git", "cuttings", "run-locks")
-}
+func TestCuttings(t *testing.T) {
+	t.Parallel()
 
-// writeRawLock writes a lock file directly (bypassing Lock, which always
-// records the current process's own PID) so tests can simulate a lock left
-// behind by a different, possibly-dead process.
-func writeRawLock(t *testing.T, dir, name string, lock map[string]any) {
-	t.Helper()
-	lockDir := runLocksDir(dir)
-	if err := os.MkdirAll(lockDir, 0o750); err != nil {
-		t.Fatalf("MkdirAll(%q): %v", lockDir, err)
+	trees := []worktree.Worktree{
+		{Branch: "main", Path: "/repo", IsMain: true},
+		{Branch: "feature/a", Path: "/repo/.worktrees/feature/a"},
+		{Branch: "", Path: "/repo/.worktrees/cut-run-123"}, // detached "run" worktree
+		{Branch: "feature/b", Path: "/repo/.worktrees/feature/b"},
 	}
-	data, err := json.Marshal(lock)
-	if err != nil {
-		t.Fatalf("marshal lock: %v", err)
+
+	got := worktree.Cuttings(trees)
+	if len(got) != 2 {
+		t.Fatalf("worktree.Cuttings() returned %d entries (%v), want 2", len(got), got)
 	}
-	if err := os.WriteFile(filepath.Join(lockDir, name), data, 0o600); err != nil {
-		t.Fatalf("write lock file: %v", err)
+	if got[0].Branch != "feature/a" || got[1].Branch != "feature/b" {
+		t.Errorf("worktree.Cuttings() = %v, want feature/a and feature/b in order", got)
 	}
 }
 
-func TestLock_WritesLockFile(t *testing.T) {
+func TestCuttings_NoneLeft(t *testing.T) {
+	t.Parallel()
+
+	if got := worktree.Cuttings([]worktree.Worktree{{Branch: "main", IsMain: true}}); got != nil {
+		t.Errorf("worktree.Cuttings() = %v, want nil", got)
+	}
+}
+
+// GitCommonDir must resolve to the same shared .git directory from a linked
+// worktree as from the main one — that is what keeps per-repo state (run
+// locks) in a single place no matter where a command is invoked.
+func TestGitCommonDir_SharedAcrossWorktrees(t *testing.T) {
 	dir := initRepo(t)
 	m := worktree.NewManager(dir, ".worktrees")
 
-	if err := m.Lock("some-key"); err != nil {
-		t.Fatalf("Lock() unexpected error: %v", err)
-	}
-
-	entries, err := os.ReadDir(runLocksDir(dir))
-	if err != nil {
-		t.Fatalf("ReadDir(run-locks): %v", err)
-	}
-	if len(entries) != 1 {
-		t.Fatalf("run-locks dir has %d entries, want 1", len(entries))
-	}
-
-	data, err := os.ReadFile(filepath.Join(runLocksDir(dir), entries[0].Name())) //nolint:gosec // test-controlled path
-	if err != nil {
-		t.Fatalf("read lock file: %v", err)
-	}
-	var lock worktree.RunLock
-	if err := json.Unmarshal(data, &lock); err != nil {
-		t.Fatalf("unmarshal lock file: %v", err)
-	}
-	if lock.Key != "some-key" {
-		t.Errorf("lock.Key = %q, want %q", lock.Key, "some-key")
-	}
-	if lock.PID != os.Getpid() {
-		t.Errorf("lock.PID = %d, want %d (current process)", lock.PID, os.Getpid())
-	}
-	if lock.Path != m.Path("some-key") {
-		t.Errorf("lock.Path = %q, want %q", lock.Path, m.Path("some-key"))
-	}
-}
-
-func TestUnlock_RemovesLockFile(t *testing.T) {
-	dir := initRepo(t)
-	m := worktree.NewManager(dir, ".worktrees")
-
-	if err := m.Lock("some-key"); err != nil {
-		t.Fatalf("Lock() setup: %v", err)
-	}
-	if err := m.Unlock("some-key"); err != nil {
-		t.Fatalf("Unlock() unexpected error: %v", err)
-	}
-
-	entries, err := os.ReadDir(runLocksDir(dir))
-	if err != nil {
-		t.Fatalf("ReadDir(run-locks): %v", err)
-	}
-	if len(entries) != 0 {
-		t.Errorf("run-locks dir has %d entries after Unlock(), want 0", len(entries))
-	}
-}
-
-func TestUnlock_NonexistentKey_NotAnError(t *testing.T) {
-	dir := initRepo(t)
-	m := worktree.NewManager(dir, ".worktrees")
-
-	if err := m.Unlock("never-locked"); err != nil {
-		t.Errorf("Unlock() unexpected error for a key that was never locked: %v", err)
-	}
-}
-
-func TestSweepOrphans_NoLocks_ReturnsEmpty(t *testing.T) {
-	dir := initRepo(t)
-	m := worktree.NewManager(dir, ".worktrees")
-
-	cleaned, err := m.SweepOrphans()
-	if err != nil {
-		t.Fatalf("SweepOrphans() unexpected error: %v", err)
-	}
-	if len(cleaned) != 0 {
-		t.Errorf("SweepOrphans() = %v, want empty", cleaned)
-	}
-}
-
-func TestSweepOrphans_LivePID_LeavesWorktreeAlone(t *testing.T) {
-	dir := initRepo(t)
-	m := worktree.NewManager(dir, ".worktrees")
-
-	path, err := m.Add("still-running", true, "")
-	if err != nil {
-		t.Fatalf("Add() setup: %v", err)
-	}
-	if err := m.Lock("still-running"); err != nil {
-		t.Fatalf("Lock() setup: %v", err)
-	}
-
-	cleaned, err := m.SweepOrphans()
-	if err != nil {
-		t.Fatalf("SweepOrphans() unexpected error: %v", err)
-	}
-	if len(cleaned) != 0 {
-		t.Errorf("SweepOrphans() = %v, want empty (owning PID is this test process, still alive)", cleaned)
-	}
-	if _, err := os.Stat(path); err != nil {
-		t.Errorf("worktree directory should still exist: %v", err)
-	}
-}
-
-func TestSweepOrphans_DeadPID_RemovesWorktreeAndLock(t *testing.T) {
-	dir := initRepo(t)
-	m := worktree.NewManager(dir, ".worktrees")
-
-	path, err := m.Add("to-sweep", true, "")
+	path, err := m.Add("feature/foo", true, "")
 	if err != nil {
 		t.Fatalf("Add() setup: %v", err)
 	}
 
-	// A process that has already exited — its PID is guaranteed dead.
-	deadCmd := exec.Command("true")
-	if err := deadCmd.Run(); err != nil {
-		t.Fatalf("run sentinel process: %v", err)
-	}
-	deadPID := deadCmd.Process.Pid
-
-	writeRawLock(t, dir, "dead.json", map[string]any{
-		"key":       "to-sweep",
-		"path":      path,
-		"pid":       deadPID,
-		"createdAt": time.Now(),
-	})
-
-	cleaned, err := m.SweepOrphans()
+	fromMain, err := m.GitCommonDir()
 	if err != nil {
-		t.Fatalf("SweepOrphans() unexpected error: %v", err)
+		t.Fatalf("GitCommonDir() from main worktree: %v", err)
 	}
-	if len(cleaned) != 1 || cleaned[0] != "to-sweep" {
-		t.Errorf("SweepOrphans() = %v, want [to-sweep]", cleaned)
-	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Error("worktree directory still exists after SweepOrphans()")
-	}
-	entries, err := os.ReadDir(runLocksDir(dir))
+	fromCutting, err := worktree.NewManager(path, ".worktrees").GitCommonDir()
 	if err != nil {
-		t.Fatalf("ReadDir(run-locks): %v", err)
+		t.Fatalf("GitCommonDir() from cutting: %v", err)
 	}
-	if len(entries) != 0 {
-		t.Errorf("run-locks dir has %d entries after sweep, want 0", len(entries))
+
+	if realPath(t, fromMain) != realPath(t, fromCutting) {
+		t.Errorf("GitCommonDir() = %q from main but %q from a cutting, want the same directory", fromMain, fromCutting)
+	}
+	if realPath(t, fromMain) != realPath(t, filepath.Join(dir, ".git")) {
+		t.Errorf("GitCommonDir() = %q, want the repository's .git directory", fromMain)
 	}
 }
 
-func TestSweepOrphans_CorruptLockFile_RemovedAndSkipped(t *testing.T) {
-	dir := initRepo(t)
-	m := worktree.NewManager(dir, ".worktrees")
+func TestGitCommonDir_NotARepo(t *testing.T) {
+	// Must clear the hook environment explicitly: this test deliberately has no
+	// repository of its own, so an inherited GIT_DIR would let git resolve a
+	// common directory anyway and the test would pass for the wrong reason.
+	clearGitEnv(t)
 
-	lockDir := runLocksDir(dir)
-	if err := os.MkdirAll(lockDir, 0o750); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(lockDir, "garbage.json"), []byte("not json"), 0o600); err != nil {
-		t.Fatalf("write garbage lock file: %v", err)
-	}
-
-	cleaned, err := m.SweepOrphans()
-	if err != nil {
-		t.Fatalf("SweepOrphans() unexpected error: %v", err)
-	}
-	if len(cleaned) != 0 {
-		t.Errorf("SweepOrphans() = %v, want empty (corrupt file is not a valid orphan)", cleaned)
-	}
-	if _, err := os.Stat(filepath.Join(lockDir, "garbage.json")); !os.IsNotExist(err) {
-		t.Error("corrupt lock file was not removed")
+	m := worktree.NewManager(t.TempDir(), ".worktrees")
+	if _, err := m.GitCommonDir(); err == nil {
+		t.Error("GitCommonDir() error = nil outside a git repository, want an error")
 	}
 }

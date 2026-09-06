@@ -6,6 +6,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ChristophBe/cuttings/internal/config"
@@ -115,5 +116,53 @@ func TestFilePath(t *testing.T) {
 	want := filepath.Join(dir, config.ConfigFileName)
 	if got := cfg.FilePath(); got != want {
 		t.Errorf("FilePath() = %q, want %q", got, want)
+	}
+}
+
+func TestEnvKey(t *testing.T) {
+	cases := map[string]string{
+		config.KeyWorktreesDir:       "CUTTINGS_WORKTREES_DIR",
+		config.KeyDefaultBranch:      "CUTTINGS_DEFAULT_BRANCH",
+		config.KeyRunCleanupOnSignal: "CUTTINGS_RUN_CLEANUP_ON_SIGNAL",
+	}
+	for key, want := range cases {
+		if got := config.EnvKey(key); got != want {
+			t.Errorf("config.EnvKey(%q) = %q, want %q", key, got, want)
+		}
+	}
+}
+
+// The template written by "cuttings init" must round-trip through config.Load and
+// produce exactly the built-in defaults — otherwise a freshly initialized repo
+// would silently behave differently from an uninitialized one.
+func TestDefaultFileContents_RoundTripsToDefaults(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, config.ConfigFileName), config.DefaultFileContents(), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+	if cfg.WorktreesDir != config.DefaultWorktreesDir {
+		t.Errorf("WorktreesDir = %q, want %q", cfg.WorktreesDir, config.DefaultWorktreesDir)
+	}
+	if cfg.DefaultBranch != config.DefaultDefaultBranch {
+		t.Errorf("DefaultBranch = %q, want %q", cfg.DefaultBranch, config.DefaultDefaultBranch)
+	}
+	if cfg.RunCleanupOnSignal != config.DefaultRunCleanupOnSignal {
+		t.Errorf("RunCleanupOnSignal = %v, want %v", cfg.RunCleanupOnSignal, config.DefaultRunCleanupOnSignal)
+	}
+}
+
+// Every documented override in the template must name a real environment
+// variable, so the comments cannot drift from config.EnvKey.
+func TestDefaultFileContents_DocumentsEveryEnvOverride(t *testing.T) {
+	content := string(config.DefaultFileContents())
+	for _, key := range []string{config.KeyWorktreesDir, config.KeyDefaultBranch, config.KeyRunCleanupOnSignal} {
+		if !strings.Contains(content, "Override with env var: "+config.EnvKey(key)) {
+			t.Errorf("template does not document the override for %q (%s)", key, config.EnvKey(key))
+		}
 	}
 }

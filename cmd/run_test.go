@@ -9,159 +9,63 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/ChristophBe/cuttings/internal/config"
-	"github.com/ChristophBe/cuttings/internal/worktree"
 )
 
-// --- mock implementations ---
-
-type mockWorktreeManager struct {
-	existsResult     bool
-	branchExists     bool
-	addPath          string
-	addErr           error
-	addDetachedPath  string
-	addDetachedErr   error
-	pathResult       string
-	currentBranch    string
-	currentBranchErr error
-	removeErr        error
-	lockErr          error
-	unlockErr        error
-	sweepResult      []string
-	sweepErr         error
-
-	// recorded call arguments
-	addBranch       string
-	addCreateBranch bool
-	addBase         string
-	addDetachedName string
-	addDetachedBase string
-	removeCalled    bool
-	removeKey       string
-	lockCalled      bool
-	lockKey         string
-	unlockCalled    bool
-	unlockKey       string
-	sweepCalled     bool
-	// callOrder records the order in which the operations below were invoked,
-	// so tests can assert e.g. that sweep happens before worktree creation.
-	callOrder []string
+// runFixture wires a run command to test doubles. Each fixture builds its own
+// command and its own Deps, so no package-level state is touched and tests can
+// run in parallel.
+type runFixture struct {
+	wt     *mockWorktreeManager
+	runner *mockRunner
+	locks  *mockLocks
+	deps   *Deps
+	stdout bytes.Buffer
+	stderr bytes.Buffer
+	stdin  io.Reader
 }
 
-func (m *mockWorktreeManager) Exists(_ string) bool       { return m.existsResult }
-func (m *mockWorktreeManager) BranchExists(_ string) bool { return m.branchExists }
-func (m *mockWorktreeManager) Add(branch string, createBranch bool, base string) (string, error) {
-	m.callOrder = append(m.callOrder, "Add")
-	m.addBranch = branch
-	m.addCreateBranch = createBranch
-	m.addBase = base
-	return m.addPath, m.addErr
-}
-func (m *mockWorktreeManager) AddDetached(name, base string) (string, error) {
-	m.callOrder = append(m.callOrder, "AddDetached")
-	m.addDetachedName = name
-	m.addDetachedBase = base
-	return m.addDetachedPath, m.addDetachedErr
-}
-func (m *mockWorktreeManager) CurrentBranch() (string, error) {
-	return m.currentBranch, m.currentBranchErr
-}
-func (m *mockWorktreeManager) Remove(key string, _ bool) error {
-	m.callOrder = append(m.callOrder, "Remove")
-	m.removeCalled = true
-	m.removeKey = key
-	return m.removeErr
-}
-func (m *mockWorktreeManager) ListBranches() ([]string, error)               { return nil, nil }
-func (m *mockWorktreeManager) ListMergedBranches(_ string) ([]string, error) { return nil, nil }
-func (m *mockWorktreeManager) List() ([]worktree.Worktree, error)            { return nil, nil }
-func (m *mockWorktreeManager) Path(_ string) string                          { return m.pathResult }
-func (m *mockWorktreeManager) Lock(key string) error {
-	m.callOrder = append(m.callOrder, "Lock")
-	m.lockCalled = true
-	m.lockKey = key
-	return m.lockErr
-}
-func (m *mockWorktreeManager) Unlock(key string) error {
-	m.callOrder = append(m.callOrder, "Unlock")
-	m.unlockCalled = true
-	m.unlockKey = key
-	return m.unlockErr
-}
-func (m *mockWorktreeManager) SweepOrphans() ([]string, error) {
-	m.callOrder = append(m.callOrder, "SweepOrphans")
-	m.sweepCalled = true
-	return m.sweepResult, m.sweepErr
-}
-
-type mockRunner struct {
-	runErr error
-	// runFunc, if set, is invoked instead of returning runErr directly — used
-	// by tests that need to observe or react to ctx (e.g. block until it is
-	// canceled to simulate a signal arriving mid-run).
-	runFunc func(ctx context.Context) error
-
-	// recorded call arguments
-	runDir     string
-	runBranch  string
-	runCommand []string
-}
-
-func (m *mockRunner) Run(ctx context.Context, dir, branch string, command []string) error {
-	m.runDir = dir
-	m.runBranch = branch
-	m.runCommand = command
-	if m.runFunc != nil {
-		return m.runFunc(ctx)
-	}
-	return m.runErr
-}
-
-// setupRunTest replaces global deps and flags with test doubles and returns a
-// restore function that must be deferred by the caller.
-func setupRunTest(wt *mockWorktreeManager, runner *mockRunner) func() {
-	savedDeps := deps
-	savedRunBranch := runBranch
-	savedRunSource := runSource
-	savedRunRemoveAfter := runRemoveAfter
-	savedExitFn := exitFn
-	savedPromptReader := promptReader
-
-	// RunCleanupOnSignal defaults to true in real usage (config.Load sets it via
-	// config.DefaultRunCleanupOnSignal); mirror that here so existing tests keep
-	// exercising the enabled path unless a test explicitly opts out.
-	deps.cfg = &config.Config{RunCleanupOnSignal: true}
-	deps.wt = wt
-	deps.runner = runner
-
-	runBranch = ""
-	runSource = ""
-	runRemoveAfter = false
-	// Default to an already-exhausted reader so a test that unexpectedly hits
-	// the removal prompt gets a deterministic "no" (EOF) instead of blocking.
-	promptReader = strings.NewReader("")
-
-	return func() {
-		deps = savedDeps
-		runBranch = savedRunBranch
-		runSource = savedRunSource
-		runRemoveAfter = savedRunRemoveAfter
-		exitFn = savedExitFn
-		promptReader = savedPromptReader
+func newRunFixture(wt *mockWorktreeManager, runner *mockRunner) *runFixture {
+	// The lock store and the worktree manager share one call-order log, so a
+	// test can assert that e.g. the worktree is created before it is locked.
+	locks := &mockLocks{callOrder: &wt.callOrder}
+	return &runFixture{
+		wt:     wt,
+		runner: runner,
+		locks:  locks,
+		// RunCleanupOnSignal defaults to true in real usage (config.Load sets it
+		// via config.DefaultRunCleanupOnSignal); mirror that here so tests
+		// exercise the enabled path unless one explicitly opts out.
+		deps: &Deps{
+			cfg:    &config.Config{RunCleanupOnSignal: true},
+			wt:     wt,
+			locks:  locks,
+			runner: runner,
+		},
+		// Default to an already-exhausted reader so a test that unexpectedly
+		// hits the removal prompt gets a deterministic "no" (EOF) instead of
+		// blocking.
+		stdin: strings.NewReader(""),
 	}
 }
 
-// callRunE invokes the run command's RunE handler directly with the given args.
-func callRunE(args []string) error {
-	return runCmd.RunE(runCmd, args)
+// exec runs the command with args exactly as the CLI would: real flag parsing,
+// real "--" handling and the real Args validator, none of which were exercised
+// when tests called RunE directly.
+func (f *runFixture) exec(args ...string) error {
+	cmd := newRunCmd(f.deps)
+	cmd.SetOut(&f.stdout)
+	cmd.SetErr(&f.stderr)
+	cmd.SetIn(f.stdin)
+	cmd.SetArgs(args)
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	return cmd.Execute()
 }
 
 // --- tests ---
@@ -169,12 +73,13 @@ func callRunE(args []string) error {
 // --- no-branch (detached HEAD) path ---
 
 func TestRunCmd_NoBranch_UsesDetachedWorktree(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{currentBranch: "feature/foo", addDetachedPath: "/tmp/ws"}
 	runner := &mockRunner{}
-	restore := setupRunTest(wt, runner)
-	defer restore()
+	f := newRunFixture(wt, runner)
 
-	if err := callRunE([]string{"true"}); err != nil {
+	if err := f.exec("--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -190,12 +95,13 @@ func TestRunCmd_NoBranch_UsesDetachedWorktree(t *testing.T) {
 }
 
 func TestRunCmd_NoBranch_EnvBranchIsCurrentBranch(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{currentBranch: "feature/foo", addDetachedPath: "/tmp/ws"}
 	runner := &mockRunner{}
-	restore := setupRunTest(wt, runner)
-	defer restore()
+	f := newRunFixture(wt, runner)
 
-	if err := callRunE([]string{"true"}); err != nil {
+	if err := f.exec("--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -205,13 +111,12 @@ func TestRunCmd_NoBranch_EnvBranchIsCurrentBranch(t *testing.T) {
 }
 
 func TestRunCmd_NoBranch_FromFlagPassedToAddDetached(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{currentBranch: "main", addDetachedPath: "/tmp/ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runSource = "origin/main"
-
-	if err := callRunE([]string{"true"}); err != nil {
+	if err := f.exec("--source", "origin/main", "--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -221,11 +126,12 @@ func TestRunCmd_NoBranch_FromFlagPassedToAddDetached(t *testing.T) {
 }
 
 func TestRunCmd_NoBranch_CurrentBranchError(t *testing.T) {
-	wt := &mockWorktreeManager{currentBranchErr: errors.New("no git repo")}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	t.Parallel()
 
-	err := callRunE([]string{"true"})
+	wt := &mockWorktreeManager{currentBranchErr: errors.New("no git repo")}
+	f := newRunFixture(wt, &mockRunner{})
+
+	err := f.exec("--", "true")
 	if err == nil {
 		t.Fatal("expected error when CurrentBranch() fails, got nil")
 	}
@@ -235,11 +141,12 @@ func TestRunCmd_NoBranch_CurrentBranchError(t *testing.T) {
 }
 
 func TestRunCmd_NoBranch_AddDetachedFails(t *testing.T) {
-	wt := &mockWorktreeManager{currentBranch: "main", addDetachedErr: errors.New("git error")}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	t.Parallel()
 
-	err := callRunE([]string{"true"})
+	wt := &mockWorktreeManager{currentBranch: "main", addDetachedErr: errors.New("git error")}
+	f := newRunFixture(wt, &mockRunner{})
+
+	err := f.exec("--", "true")
 	if err == nil {
 		t.Fatal("expected error when AddDetached() fails, got nil")
 	}
@@ -249,11 +156,12 @@ func TestRunCmd_NoBranch_AddDetachedFails(t *testing.T) {
 }
 
 func TestRunCmd_NoBranch_CleanupCalled(t *testing.T) {
-	wt := &mockWorktreeManager{currentBranch: "main", addDetachedPath: "/tmp/ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	t.Parallel()
 
-	if err := callRunE([]string{"true"}); err != nil {
+	wt := &mockWorktreeManager{currentBranch: "main", addDetachedPath: "/tmp/ws"}
+	f := newRunFixture(wt, &mockRunner{})
+
+	if err := f.exec("--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -269,15 +177,15 @@ func TestRunCmd_NoBranch_CleanupCalled(t *testing.T) {
 // --- explicit --branch path ---
 
 func TestRunCmd_ExistingBranch_RunsInPlace_NoCreate(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
 	runner := &mockRunner{}
-	restore := setupRunTest(wt, runner)
-	defer restore()
+	f := newRunFixture(wt, runner)
 
-	runBranch = "feature/exists"
-	promptReader = strings.NewReader("n\n")
+	f.stdin = strings.NewReader("n\n")
 
-	if err := callRunE([]string{"echo", "hello"}); err != nil {
+	if err := f.exec("feature/exists", "--", "echo", "hello"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if wt.addBranch != "" {
@@ -292,18 +200,17 @@ func TestRunCmd_ExistingBranch_RunsInPlace_NoCreate(t *testing.T) {
 }
 
 func TestRunCmd_ExistingBranch_PromptRemove_Yes(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/exists"
-	promptReader = strings.NewReader("y\n")
+	f.stdin = strings.NewReader("y\n")
 
-	stdout := captureStdout(t, func() {
-		if err := callRunE([]string{"echo", "hello"}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
+	if err := f.exec("feature/exists", "--", "echo", "hello"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	stdout := f.stdout.String()
 
 	if !wt.removeCalled {
 		t.Error("expected Remove() to be called after confirming removal")
@@ -314,14 +221,14 @@ func TestRunCmd_ExistingBranch_PromptRemove_Yes(t *testing.T) {
 }
 
 func TestRunCmd_ExistingBranch_PromptRemove_Yes_RemoveFails(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws", removeErr: errors.New("remove failed")}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/exists"
-	promptReader = strings.NewReader("y\n")
+	f.stdin = strings.NewReader("y\n")
 
-	if err := callRunE([]string{"echo", "hello"}); err != nil {
+	if err := f.exec("feature/exists", "--", "echo", "hello"); err != nil {
 		t.Fatalf("a Remove() failure after confirming removal should be a non-fatal warning, got error: %v", err)
 	}
 	if !wt.removeCalled {
@@ -330,18 +237,17 @@ func TestRunCmd_ExistingBranch_PromptRemove_Yes_RemoveFails(t *testing.T) {
 }
 
 func TestRunCmd_ExistingBranch_PromptRemove_No(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/exists"
-	promptReader = strings.NewReader("n\n")
+	f.stdin = strings.NewReader("n\n")
 
-	stdout := captureStdout(t, func() {
-		if err := callRunE([]string{"echo", "hello"}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
+	if err := f.exec("feature/exists", "--", "echo", "hello"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	stdout := f.stdout.String()
 
 	if wt.removeCalled {
 		t.Error("Remove() should not have been called after declining removal")
@@ -352,14 +258,14 @@ func TestRunCmd_ExistingBranch_PromptRemove_No(t *testing.T) {
 }
 
 func TestRunCmd_ExistingBranch_PromptDefaultsToNoOnEOF(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/exists"
-	promptReader = strings.NewReader("") // immediate EOF, e.g. no terminal attached
+	f.stdin = strings.NewReader("") // immediate EOF, e.g. no terminal attached
 
-	if err := callRunE([]string{"echo", "hello"}); err != nil {
+	if err := f.exec("feature/exists", "--", "echo", "hello"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if wt.removeCalled {
@@ -368,16 +274,15 @@ func TestRunCmd_ExistingBranch_PromptDefaultsToNoOnEOF(t *testing.T) {
 }
 
 func TestRunCmd_ExistingBranch_RemoveAfterFlag_SkipsPromptAndRemoves(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/exists"
-	runRemoveAfter = true
 	// No reader input at all — --remove-after must never read from it.
-	promptReader = strings.NewReader("")
+	f.stdin = strings.NewReader("")
 
-	if err := callRunE([]string{"echo", "hello"}); err != nil {
+	if err := f.exec("--remove-after", "feature/exists", "--", "echo", "hello"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !wt.removeCalled {
@@ -389,39 +294,37 @@ func TestRunCmd_ExistingBranch_RemoveAfterFlag_SkipsPromptAndRemoves(t *testing.
 }
 
 func TestRunCmd_ExistingBranch_RemoveAfterFlag_LocksLikeTemporary(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/exists"
-	runRemoveAfter = true
-
-	if err := callRunE([]string{"echo", "hello"}); err != nil {
+	if err := f.exec("--remove-after", "feature/exists", "--", "echo", "hello"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !wt.lockCalled {
+	if !f.locks.acquireCalled {
 		t.Error("expected Lock() to be called when --remove-after opts a reused cutting into the temporary lifecycle")
 	}
-	if !wt.unlockCalled {
+	if !f.locks.releaseCalled {
 		t.Error("expected Unlock() to be called after cleanup")
 	}
 }
 
 func TestRunCmd_ExistingBranch_WithoutRemoveAfter_NoLockRegistered(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{existsResult: true, pathResult: "/tmp/existing-ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/exists"
-	promptReader = strings.NewReader("n\n")
+	f.stdin = strings.NewReader("n\n")
 
-	if err := callRunE([]string{"echo", "hello"}); err != nil {
+	if err := f.exec("feature/exists", "--", "echo", "hello"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if wt.lockCalled {
+	if f.locks.acquireCalled {
 		t.Error("Lock() should not be called for a reused cutting without --remove-after")
 	}
-	if wt.unlockCalled {
+	if f.locks.releaseCalled {
 		t.Error("Unlock() should not be called for a reused cutting without --remove-after")
 	}
 }
@@ -433,13 +336,12 @@ func TestRunCmd_ExistingBranch_WithoutRemoveAfter_NoLockRegistered(t *testing.T)
 // signalAwareRun directly rather than delivering a real signal here.
 
 func TestRunCmd_AddFails(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addErr: errors.New("git error")}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/new"
-
-	err := callRunE([]string{"echo", "hello"})
+	err := f.exec("feature/new", "--", "echo", "hello")
 	if err == nil {
 		t.Fatal("expected error when Add() fails, got nil")
 	}
@@ -449,14 +351,13 @@ func TestRunCmd_AddFails(t *testing.T) {
 }
 
 func TestRunCmd_Success_CleanupCalled(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
 	runner := &mockRunner{}
-	restore := setupRunTest(wt, runner)
-	defer restore()
+	f := newRunFixture(wt, runner)
 
-	runBranch = "feature/foo"
-
-	if err := callRunE([]string{"echo", "hello"}); err != nil {
+	if err := f.exec("feature/foo", "--", "echo", "hello"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -469,14 +370,13 @@ func TestRunCmd_Success_CleanupCalled(t *testing.T) {
 }
 
 func TestRunCmd_CommandError_CleanupCalled(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
 	runner := &mockRunner{runErr: errors.New("command failed")}
-	restore := setupRunTest(wt, runner)
-	defer restore()
+	f := newRunFixture(wt, runner)
 
-	runBranch = "feature/foo"
-
-	err := callRunE([]string{"failing-cmd"})
+	err := f.exec("feature/foo", "--", "failing-cmd")
 	if err == nil {
 		t.Fatal("expected error from failing command, got nil")
 	}
@@ -485,7 +385,12 @@ func TestRunCmd_CommandError_CleanupCalled(t *testing.T) {
 	}
 }
 
-func TestRunCmd_ExitError_CleanupCalledAndExitFnInvoked(t *testing.T) {
+// A command that exits non-zero must not look like a cuttings failure: the
+// cutting is still cleaned up, and the code travels back as an ExitCodeError
+// for Execute to turn into the process's own exit status.
+func TestRunCmd_ExitError_CleanupCalledAndExitCodePropagated(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
 
 	var exitErr *exec.ExitError
@@ -493,35 +398,49 @@ func TestRunCmd_ExitError_CleanupCalledAndExitFnInvoked(t *testing.T) {
 		t.Skip("could not construct *exec.ExitError for test")
 	}
 
-	runner := &mockRunner{runErr: exitErr}
-	restore := setupRunTest(wt, runner)
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{runErr: exitErr})
 
-	runBranch = "feature/foo"
+	err := f.exec("feature/foo", "--", "sh", "-c", "exit 3")
 
-	var capturedCode int
-	exitFn = func(code int) { capturedCode = code }
-
-	err := callRunE([]string{"sh", "-c", "exit 3"})
-	if err != nil {
-		t.Errorf("RunE should return nil for ExitError (exit handled via exitFn), got: %v", err)
+	var codeErr *ExitCodeError
+	if !errors.As(err, &codeErr) {
+		t.Fatalf("error = %v, want an *ExitCodeError", err)
+	}
+	if codeErr.Code != 3 {
+		t.Errorf("exit code = %d, want 3", codeErr.Code)
 	}
 	if !wt.removeCalled {
-		t.Error("Remove() was not called before exitFn")
+		t.Error("Remove() was not called — cleanup must still happen on a non-zero exit")
 	}
-	if capturedCode != 3 {
-		t.Errorf("exitFn called with code %d, want 3", capturedCode)
+}
+
+// Cleanup runs on the way out of RunE, so its output is already flushed by the
+// time the exit code reaches Execute.
+func TestRunCmd_ExitCode_CleanupHappensBeforeReturn(t *testing.T) {
+	t.Parallel()
+
+	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
+
+	var exitErr *exec.ExitError
+	if err := exec.Command("sh", "-c", "exit 3").Run(); !errors.As(err, &exitErr) {
+		t.Skip("could not construct *exec.ExitError for test")
+	}
+
+	f := newRunFixture(wt, &mockRunner{runErr: exitErr})
+	_ = f.exec("feature/foo", "--", "sh", "-c", "exit 3")
+
+	if !strings.Contains(f.stdout.String(), "Cleaning up cutting") {
+		t.Errorf("stdout = %q, want the cleanup message before the exit code propagates", f.stdout.String())
 	}
 }
 
 func TestRunCmd_ExplicitBranch(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/my-branch"
-
-	if err := callRunE([]string{"true"}); err != nil {
+	if err := f.exec("feature/my-branch", "--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -531,14 +450,12 @@ func TestRunCmd_ExplicitBranch(t *testing.T) {
 }
 
 func TestRunCmd_FromFlagPassedToAdd(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/new"
-	runSource = "main"
-
-	if err := callRunE([]string{"true"}); err != nil {
+	if err := f.exec("--source", "main", "feature/new", "--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -548,13 +465,12 @@ func TestRunCmd_FromFlagPassedToAdd(t *testing.T) {
 }
 
 func TestRunCmd_BranchExists_NoCreate(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addPath: "/tmp/ws", branchExists: true}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "existing-branch"
-
-	if err := callRunE([]string{"true"}); err != nil {
+	if err := f.exec("existing-branch", "--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -564,13 +480,12 @@ func TestRunCmd_BranchExists_NoCreate(t *testing.T) {
 }
 
 func TestRunCmd_BranchNotExists_Create(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addPath: "/tmp/ws", branchExists: false}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "new-branch"
-
-	if err := callRunE([]string{"true"}); err != nil {
+	if err := f.exec("new-branch", "--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -580,14 +495,13 @@ func TestRunCmd_BranchNotExists_Create(t *testing.T) {
 }
 
 func TestRunCmd_RunnerReceivesCorrectArgs(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addPath: "/tmp/testws"}
 	runner := &mockRunner{}
-	restore := setupRunTest(wt, runner)
-	defer restore()
+	f := newRunFixture(wt, runner)
 
-	runBranch = "my-branch"
-
-	if err := callRunE([]string{"go", "test", "./..."}); err != nil {
+	if err := f.exec("my-branch", "--", "go", "test", "./..."); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -601,14 +515,14 @@ func TestRunCmd_RunnerReceivesCorrectArgs(t *testing.T) {
 }
 
 func TestRunCmd_DefaultBranchUsedAsFromBase(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	runBranch = "feature/new"
-	deps.cfg = &config.Config{DefaultBranch: "develop", RunCleanupOnSignal: true}
+	f.deps.cfg = &config.Config{DefaultBranch: "develop", RunCleanupOnSignal: true}
 
-	if err := callRunE([]string{"true"}); err != nil {
+	if err := f.exec("feature/new", "--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -620,11 +534,12 @@ func TestRunCmd_DefaultBranchUsedAsFromBase(t *testing.T) {
 // --- orphan sweep ---
 
 func TestRunCmd_SweepOrphans_CalledBeforeCreate(t *testing.T) {
-	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	t.Parallel()
 
-	if err := callRunE([]string{"true"}); err != nil {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	f := newRunFixture(wt, &mockRunner{})
+
+	if err := f.exec("--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -634,15 +549,16 @@ func TestRunCmd_SweepOrphans_CalledBeforeCreate(t *testing.T) {
 }
 
 func TestRunCmd_SweepOrphans_PrintsCleanedKeys(t *testing.T) {
-	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", sweepResult: []string{"cut-run-123"}}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	t.Parallel()
 
-	stdout := captureStdout(t, func() {
-		if err := callRunE([]string{"true"}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	f := newRunFixture(wt, &mockRunner{})
+	f.locks.sweepResult = []string{"cut-run-123"}
+
+	if err := f.exec("--", "true"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	stdout := f.stdout.String()
 
 	if !strings.Contains(stdout, "Cleaned up orphaned cutting from a previous run: cut-run-123") {
 		t.Errorf("stdout = %q, want it to mention the cleaned-up orphan", stdout)
@@ -650,11 +566,13 @@ func TestRunCmd_SweepOrphans_PrintsCleanedKeys(t *testing.T) {
 }
 
 func TestRunCmd_SweepOrphans_ErrorIsNonFatal(t *testing.T) {
-	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", sweepErr: errors.New("sweep failed")}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	t.Parallel()
 
-	if err := callRunE([]string{"true"}); err != nil {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	f := newRunFixture(wt, &mockRunner{})
+	f.locks.sweepErr = errors.New("sweep failed")
+
+	if err := f.exec("--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if wt.addDetachedName == "" {
@@ -665,25 +583,26 @@ func TestRunCmd_SweepOrphans_ErrorIsNonFatal(t *testing.T) {
 // --- run lock / unlock ---
 
 func TestRunCmd_LockCalledAfterWorktreeCreated_UnlockCalledOnCleanup(t *testing.T) {
-	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	t.Parallel()
 
-	if err := callRunE([]string{"true"}); err != nil {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	f := newRunFixture(wt, &mockRunner{})
+
+	if err := f.exec("--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !wt.lockCalled {
+	if !f.locks.acquireCalled {
 		t.Error("Lock() was not called")
 	}
-	if !strings.HasPrefix(wt.lockKey, "cut-run-") {
-		t.Errorf("Lock key = %q, want prefix %q", wt.lockKey, "cut-run-")
+	if !strings.HasPrefix(f.locks.acquireKey, "cut-run-") {
+		t.Errorf("Lock key = %q, want prefix %q", f.locks.acquireKey, "cut-run-")
 	}
-	if !wt.unlockCalled {
+	if !f.locks.releaseCalled {
 		t.Error("Unlock() was not called")
 	}
-	if wt.unlockKey != wt.lockKey {
-		t.Errorf("Unlock key = %q, want it to match Lock key %q", wt.unlockKey, wt.lockKey)
+	if f.locks.releaseKey != f.locks.acquireKey {
+		t.Errorf("Unlock key = %q, want it to match Lock key %q", f.locks.releaseKey, f.locks.acquireKey)
 	}
 
 	// Lock must happen after the worktree is created (AddDetached), and
@@ -707,12 +626,14 @@ func TestRunCmd_LockCalledAfterWorktreeCreated_UnlockCalledOnCleanup(t *testing.
 }
 
 func TestRunCmd_LockFails_RunStillProceeds(t *testing.T) {
-	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", lockErr: errors.New("lock failed")}
-	runner := &mockRunner{}
-	restore := setupRunTest(wt, runner)
-	defer restore()
+	t.Parallel()
 
-	if err := callRunE([]string{"true"}); err != nil {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	runner := &mockRunner{}
+	f := newRunFixture(wt, runner)
+	f.locks.acquireErr = errors.New("lock failed")
+
+	if err := f.exec("--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if runner.runDir != "/tmp/ws" {
@@ -724,11 +645,13 @@ func TestRunCmd_LockFails_RunStillProceeds(t *testing.T) {
 }
 
 func TestRunCmd_UnlockFails_CleanupStillReportsSuccess(t *testing.T) {
-	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", unlockErr: errors.New("unlock failed")}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	t.Parallel()
 
-	if err := callRunE([]string{"true"}); err != nil {
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
+	f := newRunFixture(wt, &mockRunner{})
+	f.locks.releaseErr = errors.New("unlock failed")
+
+	if err := f.exec("--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !wt.removeCalled {
@@ -739,23 +662,24 @@ func TestRunCmd_UnlockFails_CleanupStillReportsSuccess(t *testing.T) {
 // --- run_cleanup_on_signal = false ---
 
 func TestRunCmd_CleanupOnSignalDisabled_SkipsSweepLockAndUnlock(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
-	restore := setupRunTest(wt, &mockRunner{})
-	defer restore()
+	f := newRunFixture(wt, &mockRunner{})
 
-	deps.cfg.RunCleanupOnSignal = false
+	f.deps.cfg.RunCleanupOnSignal = false
 
-	if err := callRunE([]string{"true"}); err != nil {
+	if err := f.exec("--", "true"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if wt.sweepCalled {
+	if f.locks.sweepCalled {
 		t.Error("SweepOrphans() was called despite run_cleanup_on_signal=false")
 	}
-	if wt.lockCalled {
+	if f.locks.acquireCalled {
 		t.Error("Lock() was called despite run_cleanup_on_signal=false")
 	}
-	if wt.unlockCalled {
+	if f.locks.releaseCalled {
 		t.Error("Unlock() was called despite run_cleanup_on_signal=false")
 	}
 	// Remove() is unconditional — the plain defer-based cleanup this feature
@@ -766,6 +690,8 @@ func TestRunCmd_CleanupOnSignalDisabled_SkipsSweepLockAndUnlock(t *testing.T) {
 }
 
 func TestRunCmd_CleanupOnSignalDisabled_SignalDoesNotCancelRunningCommand(t *testing.T) {
+	t.Parallel()
+
 	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws"}
 	started := make(chan struct{})
 	finished := make(chan struct{})
@@ -778,13 +704,12 @@ func TestRunCmd_CleanupOnSignalDisabled_SignalDoesNotCancelRunningCommand(t *tes
 			return nil
 		}
 	}}
-	restore := setupRunTest(wt, runner)
-	defer restore()
+	f := newRunFixture(wt, runner)
 
-	deps.cfg.RunCleanupOnSignal = false
+	f.deps.cfg.RunCleanupOnSignal = false
 
 	done := make(chan error, 1)
-	go func() { done <- callRunE([]string{"true"}) }()
+	go func() { done <- f.exec("--", "true") }()
 
 	<-started
 	// With the feature disabled, nothing is listening on sigCh, so this must
@@ -793,7 +718,7 @@ func TestRunCmd_CleanupOnSignalDisabled_SignalDoesNotCancelRunningCommand(t *tes
 	// some external cancellation.
 	select {
 	case <-done:
-		t.Fatal("callRunE returned before the command finished — signal handling should be disabled")
+		t.Fatal("run returned before the command finished — signal handling should be disabled")
 	case <-time.After(50 * time.Millisecond):
 	}
 	close(finished)
@@ -803,81 +728,122 @@ func TestRunCmd_CleanupOnSignalDisabled_SignalDoesNotCancelRunningCommand(t *tes
 	}
 }
 
-// --- signal-aware run helper (unit tests, no real OS signals involved) ---
+// --- argument validation and the deprecated --branch flag ---
+//
+// These paths were unreachable while tests invoked RunE directly: the Args
+// validator and ArgsLenAtDash only run during real Cobra flag parsing.
 
-func TestSignalAwareRun_NoSignal_ReturnsUnderlyingError(t *testing.T) {
-	sigCh := make(chan os.Signal, 1)
-	wantErr := errors.New("boom")
+func TestRunCmd_ArgsValidation(t *testing.T) {
+	t.Parallel()
 
-	sig, err := signalAwareRun(context.Background(), sigCh, func(_ context.Context) error {
-		return wantErr
-	})
-
-	if !errors.Is(err, wantErr) {
-		t.Errorf("err = %v, want %v", err, wantErr)
-	}
-	if sig != nil {
-		t.Errorf("receivedSig = %v, want nil", sig)
-	}
-}
-
-func TestSignalAwareRun_SignalDuringRun_CancelsContextAndReportsSignal(t *testing.T) {
-	sigCh := make(chan os.Signal, 1)
-	started := make(chan struct{})
-
-	fn := func(ctx context.Context) error {
-		close(started)
-		<-ctx.Done()
-		return ctx.Err()
-	}
-
-	go func() {
-		<-started
-		sigCh <- syscall.SIGTERM
-	}()
-
-	sig, err := signalAwareRun(context.Background(), sigCh, fn)
-
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("err = %v, want context.Canceled", err)
-	}
-	if sig != syscall.SIGTERM {
-		t.Errorf("receivedSig = %v, want SIGTERM", sig)
-	}
-}
-
-func TestSignalExitCode(t *testing.T) {
 	cases := []struct {
-		sig  os.Signal
-		want int
+		name    string
+		args    []string
+		wantErr string
 	}{
-		{syscall.SIGINT, 130},
-		{syscall.SIGTERM, 143},
-		{syscall.SIGHUP, 129},
+		{
+			name:    "no command at all",
+			args:    []string{},
+			wantErr: `requires a command to run after "--"`,
+		},
+		{
+			name:    "branch given but no command after --",
+			args:    []string{"feature/foo", "--"},
+			wantErr: `requires a command to run after "--"`,
+		},
+		{
+			name:    "more than one argument before --",
+			args:    []string{"feature/foo", "extra", "--", "true"},
+			wantErr: `accepts at most 1 branch argument before "--"`,
+		},
 	}
+
 	for _, c := range cases {
-		if got := signalExitCode(c.sig); got != c.want {
-			t.Errorf("signalExitCode(%v) = %d, want %d", c.sig, got, c.want)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := newRunFixture(&mockWorktreeManager{addDetachedPath: "/tmp/ws"}, &mockRunner{})
+
+			err := f.exec(c.args...)
+			if err == nil {
+				t.Fatalf("args %v: expected a validation error", c.args)
+			}
+			if !strings.Contains(err.Error(), c.wantErr) {
+				t.Errorf("error = %q, want it to contain %q", err, c.wantErr)
+			}
+			if f.wt.addDetachedName != "" || f.wt.addBranch != "" {
+				t.Error("no worktree should be created when argument validation fails")
+			}
+		})
 	}
 }
 
-// captureStdout runs fn with os.Stdout redirected to a pipe and returns
-// everything written to it.
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe: %v", err)
+// A command may be run without "--" as long as nothing looks like a flag;
+// the branch is then not set, so this takes the detached-HEAD path.
+func TestRunCmd_NoDashDash_TreatsAllArgsAsTheCommand(t *testing.T) {
+	t.Parallel()
+
+	wt := &mockWorktreeManager{currentBranch: "main", addDetachedPath: "/tmp/ws"}
+	runner := &mockRunner{}
+	f := newRunFixture(wt, runner)
+
+	if err := f.exec("true"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	orig := os.Stdout
-	os.Stdout = w
-	defer func() { os.Stdout = orig }()
+	if wt.addDetachedName == "" {
+		t.Error("expected the detached-HEAD path when no branch precedes --")
+	}
+	if len(runner.runCommand) != 1 || runner.runCommand[0] != "true" {
+		t.Errorf("command = %v, want [true]", runner.runCommand)
+	}
+}
 
-	fn()
+// The deprecated --branch flag still selects a branch, for compatibility.
+func TestRunCmd_DeprecatedBranchFlag(t *testing.T) {
+	t.Parallel()
 
-	_ = w.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	return buf.String()
+	wt := &mockWorktreeManager{addPath: "/tmp/ws"}
+	f := newRunFixture(wt, &mockRunner{})
+
+	if err := f.exec("--branch", "feature/foo", "--", "true"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if wt.addBranch != "feature/foo" {
+		t.Errorf("Add branch = %q, want %q", wt.addBranch, "feature/foo")
+	}
+}
+
+func TestRunCmd_PositionalAndDeprecatedFlagConflict(t *testing.T) {
+	t.Parallel()
+
+	f := newRunFixture(&mockWorktreeManager{addPath: "/tmp/ws"}, &mockRunner{})
+
+	err := f.exec("--branch", "feature/a", "feature/b", "--", "true")
+	if err == nil {
+		t.Fatal("expected an error when combining --branch with a positional branch")
+	}
+	if !strings.Contains(err.Error(), "cannot combine") {
+		t.Errorf("error = %q, want the 'cannot combine' message", err)
+	}
+	if f.wt.addBranch != "" {
+		t.Error("no worktree should be created when the two branch inputs conflict")
+	}
+}
+
+// Warnings go to stderr, progress to stdout — the split e2e assertions and
+// shell redirection both rely on.
+func TestRunCmd_WarningsGoToStderr(t *testing.T) {
+	t.Parallel()
+
+	wt := &mockWorktreeManager{addDetachedPath: "/tmp/ws", removeErr: errors.New("cleanup boom")}
+	f := newRunFixture(wt, &mockRunner{})
+
+	if err := f.exec("--", "true"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(f.stderr.String(), "warning: cleanup failed") {
+		t.Errorf("stderr = %q, want the cleanup warning", f.stderr.String())
+	}
+	if strings.Contains(f.stdout.String(), "warning:") {
+		t.Errorf("stdout should not carry warnings:\n%s", f.stdout.String())
+	}
 }
