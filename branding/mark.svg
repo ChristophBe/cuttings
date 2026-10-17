@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="cuttings">
+  <!-- The cuttings mark: a single leaf, drawn with three strokes. One straight
+       line is both the stem and the leaf's midrib; two mirrored quadratics form
+       the blade. Quadratics (not cubics) are deliberate: their tangents at each
+       end point straight at the control point, so the blade meets the midrib in
+       a true cusp at the tip and the base. An earlier upright, cubic version
+       domed over at both ends and read as a lollipop rather than a leaf.
+       Light-mode accent, matching hsl(168 90% 38%) in site/assets/css/custom.css. -->
+  <g fill="none" stroke="#0AB895" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 28L25 5" />
+    <path d="M11 22Q10.3 7.1 25 5" />
+    <path d="M11 22Q25.7 19.9 25 5" />
+  </g>
+</svg>

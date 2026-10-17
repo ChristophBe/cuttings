@@ -8,7 +8,7 @@ LDFLAGS    := -s -w \
               -X 'github.com/ChristophBe/cuttings/cmd.Version=$(VERSION)' \
               -X 'github.com/ChristophBe/cuttings/cmd.BuildTime=$(BUILD_TIME)'
 
-.PHONY: build install test e2e e2e-stress lint clean tag generate-docs site site-dev help
+.PHONY: build install test e2e e2e-stress lint clean tag generate-docs generate-branding site site-dev help
 
 ## build: compile the binary to ./bin/cuttings
 build:
@@ -41,6 +41,10 @@ clean:
 ## generate-docs: regenerate the command reference in docs/features.md
 generate-docs:
 	go run ./tools/gendocs
+
+## generate-branding: re-render site/static icons from the sources in branding/
+generate-branding:
+	./branding/generate.sh
 
 ## site: build the GitHub Pages site to site/public
 site:

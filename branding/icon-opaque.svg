@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="cuttings">
+  <!-- Opaque, full-bleed variant for the iOS apple-touch-icon and the Android
+       home-screen icons. Both platforms composite the icon onto their own
+       background and apply their own corner mask, so a transparent PNG reads
+       badly there — hence the solid plate. The mark is scaled to 78% about the
+       centre so the corner mask never clips it. -->
+  <rect width="32" height="32" fill="#0B1F1A" />
+  <g fill="none" stroke="#2BEEC7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+     transform="translate(16 16) scale(0.78) translate(-16 -16)">
+    <path d="M6 28L25 5" />
+    <path d="M11 22Q10.3 7.1 25 5" />
+    <path d="M11 22Q25.7 19.9 25 5" />
+  </g>
+</svg>

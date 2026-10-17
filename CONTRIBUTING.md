@@ -38,6 +38,7 @@ cuttings/
 │   └── shell/             # Shell spawning (*Spawner struct)
 ├── e2e/                   # Black-box CLI tests (build tag: e2e)
 ├── docs/                  # Feature and design documentation
+├── branding/              # Logo sources; `make generate-branding` renders site/static icons
 ├── tools/
 │   └── gendocs/           # Regenerates the command reference in docs/features.md
 ├── .golangci.yml          # Linter configuration
@@ -56,6 +57,7 @@ cuttings/
   and dependencies travel through the `*Deps` a command is built with.
 - Commands write to `cmd.OutOrStdout()` / `cmd.ErrOrStderr()`, never to `os.Stdout` or
   `os.Stderr` directly, so their output can be captured in a test.
+- The icons under `site/static/` are generated from `branding/` — edit the sources there and re-run `make generate-branding`, never the output.
 
 ---
 
