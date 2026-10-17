@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="cuttings">
+  <!-- Favicon variant of the mark (geometry identical to mark.svg). A favicon is
+       rendered outside the page's stylesheet, so the site's class-based dark
+       toggle cannot reach it — only an embedded media query can. That is why
+       this file carries its own @media rule instead of shipping as a light/dark
+       pair the way the navbar logo does. -->
+  <style>
+    :root { --leaf: #0AB895; }
+    @media (prefers-color-scheme: dark) { :root { --leaf: #2BEEC7; } }
+  </style>
+  <g fill="none" stroke="var(--leaf)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 28L25 5" />
+    <path d="M11 22Q10.3 7.1 25 5" />
+    <path d="M11 22Q25.7 19.9 25 5" />
+  </g>
+</svg>

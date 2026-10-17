@@ -36,6 +36,17 @@ html {
   overflow-y: auto;
 }
 
+/* The leaf mark above the hero badge. The two <img> tags (light/dark, swapped
+   by the .dark class) mirror how Hextra's own navbar-title.html renders the
+   navbar logo — deliberately, because every utility class involved is already
+   used there. This project's Tailwind build only compiles classes it finds in
+   use, so a freshly-invented hx: class silently emits no CSS at all (the same
+   trap `my-16` fell into earlier); reusing the navbar's exact set avoids it.
+   Spacing lives here rather than on an hx:mb-* utility for the same reason. */
+.hero-mark {
+  margin-bottom: 1.5rem;
+}
+
 /* Soft decorative glow behind the hero, using the same accent hue. */
 .hero-glow {
   position: absolute;

@@ -15,6 +15,11 @@ params:
 <div class="hero-grid">
 <div class="hero-grid-text">
 
+<div class="hero-mark">
+<img src="/images/logo.svg" alt="" width="56" height="56" class="hx:block hx:dark:hidden" />
+<img src="/images/logo-dark.svg" alt="" width="56" height="56" class="hx:hidden hx:dark:block" />
+</div>
+
 {{< hextra/hero-badge >}}
   {{< icon name="sparkles" attributes="height=14" >}}
   <span>Built for the AI coding-agent era</span>

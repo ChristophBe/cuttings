@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- Source for the 1200x630 social-share card (og:image / twitter:image).
+       Text is laid out with an explicit generic fallback chain because the
+       rasterizer runs on whatever fonts the generating machine has; the result
+       is rendered once and committed as a PNG, so no viewer ever depends on a
+       webfont being present. Colours match the site's dark-mode accent. -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2BEEC7" stop-opacity="0.28" />
+      <stop offset="100%" stop-color="#2BEEC7" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#0B1F1A" />
+  <ellipse cx="300" cy="300" rx="520" ry="380" fill="url(#glow)" />
+
+  <!-- The mark, scaled from its native 32x32 viewBox to 240px. -->
+  <g transform="translate(110 195) scale(7.5)">
+    <g fill="none" stroke="#2BEEC7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 28L25 5" />
+      <path d="M11 22Q10.3 7.1 25 5" />
+      <path d="M11 22Q25.7 19.9 25 5" />
+    </g>
+  </g>
+
+  <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif">
+    <text x="420" y="300" font-size="112" font-weight="800" fill="#FFFFFF" letter-spacing="-3">cuttings</text>
+    <text x="424" y="364" font-size="34" font-weight="400" fill="#9FBDB4">Git worktrees as isolated dev environments</text>
+    <text x="424" y="414" font-size="34" font-weight="400" fill="#9FBDB4">for parallel AI coding agents</text>
+    <text x="424" y="492" font-size="28" font-weight="600" fill="#2BEEC7">cuttings.dev</text>
+  </g>
+</svg>

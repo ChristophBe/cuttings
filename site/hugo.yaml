@@ -66,7 +66,18 @@ params:
 
   navbar:
     displayTitle: true
-    displayLogo: false
+    displayLogo: true
+    logo:
+      path: images/logo.svg
+      dark: images/logo-dark.svg
+      width: 24
+      height: 24
+
+  # Social share card for og:image / twitter:image, read by the theme's
+  # opengraph.html and twitter_cards.html. Rendered from branding/og.svg by
+  # `make generate-branding`.
+  images:
+    - images/og.png
 
   theme:
     default: system

@@ -26,7 +26,11 @@ func newRootCmd(d *Deps) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "cuttings",
 		Short: "Grow isolated git worktrees as cuttings",
-		Long: `cuttings is a CLI tool for growing and managing isolated git working
+		// The leaf mark (see banner.go) only ever renders here, on the root
+		// command's help. tools/gendocs renders each *subcommand's* Long into
+		// docs/features.md but never root's, so this stays out of the generated
+		// command reference and out of the docs-check drift gate.
+		Long: banner + "\n\n" + `cuttings is a CLI tool for growing and managing isolated git working
 environments based on git worktrees.
 
 Each cutting is a separate directory (stored in .worktrees/<branch>/) with

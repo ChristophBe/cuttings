@@ -11,6 +11,9 @@ func TestVersion_OutsideRepo(t *testing.T) {
 	r := h.run("version")
 	requireExitCode(t, r, 0)
 	requireContains(t, r.stdout, "cuttings e2e-test (built e2e-build-time)")
+	// The ASCII leaf belongs to the root command's help only. Keeping it out of
+	// here is what lets `cuttings version` stay a single machine-readable line.
+	requireNotContains(t, r.stdout, leafTip)
 }
 
 func TestVersion_InsideRepo(t *testing.T) {
@@ -20,4 +23,7 @@ func TestVersion_InsideRepo(t *testing.T) {
 	r := h.run("version")
 	requireExitCode(t, r, 0)
 	requireContains(t, r.stdout, "cuttings e2e-test (built e2e-build-time)")
+	// The ASCII leaf belongs to the root command's help only. Keeping it out of
+	// here is what lets `cuttings version` stay a single machine-readable line.
+	requireNotContains(t, r.stdout, leafTip)
 }
